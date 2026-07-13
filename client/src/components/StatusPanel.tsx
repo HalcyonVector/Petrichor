@@ -1,4 +1,5 @@
 import type { AmbientParams, LiveInputs } from '../types';
+import { formatClock } from '../lib/formatTime';
 
 interface StatusPanelProps {
   inputs: LiveInputs;
@@ -12,17 +13,14 @@ function fmt(n: number, digits = 1) {
 
 export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
   const { hour, weather, activity } = inputs;
-  const totalMinutes = Math.round(hour * 60) % (24 * 60);
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
 
   return (
     <div className="status-panel">
-      <section>
+      <section className="hud-card">
         <h3>Inputs {isManual && <span className="badge">preset override</span>}</h3>
         <dl>
           <dt>Local time</dt>
-          <dd>{String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}</dd>
+          <dd>{formatClock(hour)}</dd>
           <dt>Weather</dt>
           <dd>
             {weather
@@ -33,7 +31,7 @@ export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
           <dd>{fmt(activity.activity * 100, 0)}% · typing {fmt(activity.typingRate * 100, 0)}%{activity.idle ? ' · idle tab' : ''}</dd>
         </dl>
       </section>
-      <section>
+      <section className="hud-card">
         <h3>Resolved sound</h3>
         <dl>
           <dt>Tempo</dt>

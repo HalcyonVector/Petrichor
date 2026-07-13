@@ -17,6 +17,19 @@ const DEFAULT_PARAMS: AmbientParams = {
   reverbWet: 0.4,
 };
 
+export type MixLayer = 'pad' | 'bass' | 'arp' | 'hihat' | 'rain';
+
+// Base levels each layer sits at when its mix control is at 1 (100%) — the
+// same balance the engine has always used, now expressed as a starting
+// point the per-layer mixer multiplies against.
+const BASE_DB: Record<'pad' | 'bass' | 'arp' | 'hihat', number> = {
+  pad: -12,
+  bass: -15,
+  arp: -18,
+  hihat: -24,
+};
+const RAIN_BASE_GAIN = 0.18;
+
 /**
  * The synthesis engine: a handful of Tone.js layers (pad, sub bass, plucked
  * arp, hihat, filtered rain noise) driven by Tone.Transport loops. All
@@ -28,6 +41,7 @@ export class AudioEngine {
   private params: AmbientParams = DEFAULT_PARAMS;
   private started = false;
   private chordDegree = 0;
+  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, rain: 1 };
 
   private master!: Tone.Gain;
   private analyser!: Tone.Analyser;
@@ -44,10 +58,14 @@ export class AudioEngine {
   private rainNoise!: Tone.Noise;
   private rainFilter!: Tone.Filter;
   private rainGain!: Tone.Gain;
+  private thunderSynth!: Tone.NoiseSynth;
+  private thunderFilter!: Tone.Filter;
 
   private padLoop?: Tone.Loop;
   private arpLoop?: Tone.Loop;
   private hihatLoop?: Tone.Loop;
+
+  private recordingDestination?: MediaStreamAudioDestinationNode;
 
   private built = false;
 
@@ -77,7 +95,6 @@ export class AudioEngine {
       oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
       envelope: { attack: 4, decay: 2, sustain: 0.65, release: 8 },
     });
-    this.padSynth.volume.value = -12;
     this.padSynth.connect(this.padFilter);
 
     this.bassSynth = new Tone.MonoSynth({
@@ -86,18 +103,15 @@ export class AudioEngine {
       filter: { type: 'lowpass', frequency: 500, rolloff: -12 },
       filterEnvelope: { attack: 2, decay: 1, sustain: 0.9, release: 5, baseFrequency: 80, octaves: 2 },
     });
-    this.bassSynth.volume.value = -15;
     this.bassSynth.connect(this.reverb);
 
     this.arpSynth = new Tone.PluckSynth({ attackNoise: 0.6, dampening: 3200, resonance: 0.86 });
-    this.arpSynth.volume.value = -18;
     this.arpSynth.connect(this.padFilter);
 
     this.hihat = new Tone.NoiseSynth({
       noise: { type: 'white' },
       envelope: { attack: 0.001, decay: 0.06, sustain: 0, release: 0.02 },
     });
-    this.hihat.volume.value = -24;
     this.hihat.connect(this.master);
 
     this.rainFilter = new Tone.Filter({ frequency: 2200, type: 'bandpass', Q: 0.6 });
@@ -106,7 +120,22 @@ export class AudioEngine {
     this.rainNoise = new Tone.Noise('pink').connect(this.rainFilter);
     this.rainNoise.start();
 
+    this.thunderFilter = new Tone.Filter({ frequency: 300, type: 'lowpass', rolloff: -24 });
+    this.thunderFilter.connect(this.reverb);
+    this.thunderSynth = new Tone.NoiseSynth({
+      noise: { type: 'brown' },
+      envelope: { attack: 0.01, decay: 1.8, sustain: 0, release: 2.5 },
+    });
+    this.thunderSynth.volume.value = -6;
+    this.thunderSynth.connect(this.thunderFilter);
+
     Tone.Transport.bpm.value = this.params.tempo;
+
+    this.applyPadVolume();
+    this.applyBassVolume();
+    this.applyArpVolume();
+    this.applyHihatVolume();
+    this.applyRainGain();
   }
 
   async start() {
@@ -142,6 +171,59 @@ export class AudioEngine {
     this.master.gain.rampTo(clamped, 0.2);
   }
 
+  /**
+   * Per-layer mix control, independent of the automatic weather/time/activity
+   * mapping. `level` is a linear multiplier: 1 = the layer's normal level,
+   * 0 = silent. Safe to call before the engine is built — the level is
+   * just remembered and applied once `build()` runs.
+   */
+  setLayerMix(layer: MixLayer, level: number) {
+    this.mixLevels[layer] = Math.max(0, Math.min(1.5, level));
+    if (!this.built) return;
+    switch (layer) {
+      case 'pad':
+        this.applyPadVolume();
+        break;
+      case 'bass':
+        this.applyBassVolume();
+        break;
+      case 'arp':
+        this.applyArpVolume();
+        break;
+      case 'hihat':
+        this.applyHihatVolume();
+        break;
+      case 'rain':
+        this.applyRainGain();
+        break;
+    }
+  }
+
+  /**
+   * Taps the master bus into a MediaStreamAudioDestinationNode so the live
+   * output can be fed to a MediaRecorder. Created lazily and reused across
+   * calls — this is a permanent tap, not a per-recording connection.
+   */
+  getRecordingStream(): MediaStream | null {
+    if (!this.built) return null;
+    if (!this.recordingDestination) {
+      const rawContext = Tone.getContext().rawContext as unknown as AudioContext;
+      this.recordingDestination = rawContext.createMediaStreamDestination();
+      this.master.connect(this.recordingDestination);
+    }
+    return this.recordingDestination.stream;
+  }
+
+  /** A one-off rumble for a lightning strike during a thunderstorm — not part of the continuous mix. */
+  triggerThunder() {
+    if (!this.built || !this.started) return;
+    const now = Tone.now();
+    this.thunderFilter.frequency.cancelScheduledValues(now);
+    this.thunderFilter.frequency.setValueAtTime(500, now);
+    this.thunderFilter.frequency.exponentialRampToValueAtTime(120, now + 1.6);
+    this.thunderSynth.triggerAttackRelease('2n', now);
+  }
+
   updateParams(next: AmbientParams) {
     this.params = next;
     if (!this.built) return;
@@ -156,7 +238,7 @@ export class AudioEngine {
 
     this.panLfo.frequency.rampTo(0.01 + next.windModulation * 0.08, 3);
 
-    this.rainGain.gain.rampTo(next.rainAmount * 0.18, 2);
+    this.applyRainGain();
     this.rainFilter.frequency.rampTo(1400 + next.brightness * 2600, 3);
 
     this.reverb.wet.rampTo(next.reverbWet, 2);
@@ -164,7 +246,32 @@ export class AudioEngine {
     const detuneSpread = 8 + (1 - next.warmth) * 35; // colder => more detuned/dissonant spread
     this.padSynth.set({ oscillator: { spread: detuneSpread } });
 
-    this.hihat.volume.rampTo(-24 + next.hihatDensity * 6, 1);
+    this.applyHihatVolume();
+  }
+
+  private mixToDb(mix: number): number {
+    return Tone.gainToDb(Math.max(0.001, mix));
+  }
+
+  private applyPadVolume() {
+    this.padSynth.volume.rampTo(BASE_DB.pad + this.mixToDb(this.mixLevels.pad), 0.2);
+  }
+
+  private applyBassVolume() {
+    this.bassSynth.volume.rampTo(BASE_DB.bass + this.mixToDb(this.mixLevels.bass), 0.2);
+  }
+
+  private applyArpVolume() {
+    this.arpSynth.volume.rampTo(BASE_DB.arp + this.mixToDb(this.mixLevels.arp), 0.2);
+  }
+
+  private applyHihatVolume() {
+    const densityDb = this.params.hihatDensity * 6;
+    this.hihat.volume.rampTo(BASE_DB.hihat + densityDb + this.mixToDb(this.mixLevels.hihat), 1);
+  }
+
+  private applyRainGain() {
+    this.rainGain.gain.rampTo(this.params.rainAmount * RAIN_BASE_GAIN * this.mixLevels.rain, 2);
   }
 
   private currentRoot() {
@@ -205,9 +312,14 @@ export class AudioEngine {
   dispose() {
     this.stop();
     if (!this.built) return;
+    if (this.recordingDestination) {
+      this.master.disconnect(this.recordingDestination);
+      this.recordingDestination = undefined;
+    }
     [
       this.master, this.analyser, this.reverb, this.padFilter, this.filterLfo, this.panLfo, this.panner,
       this.padSynth, this.bassSynth, this.arpSynth, this.hihat, this.rainNoise, this.rainFilter, this.rainGain,
+      this.thunderSynth, this.thunderFilter,
     ].forEach((node) => node?.dispose());
     this.built = false;
   }

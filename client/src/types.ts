@@ -25,6 +25,8 @@ export interface WeatherSnapshot {
   isDay: boolean;
   source: 'client' | 'ip' | 'default';
   city?: string | null;
+  /** Seconds offset from UTC at the weather location. Used to compute that location's local hour when it's a deliberate override (not wherever the browser happens to be). */
+  utcOffsetSeconds?: number;
 }
 
 export interface ActivitySnapshot {

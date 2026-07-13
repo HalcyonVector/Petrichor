@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'presets.json');
+// Overridable so tests can point at a throwaway file instead of the real store.
+const DATA_FILE = process.env.PRESETS_DATA_FILE
+  ? path.resolve(process.env.PRESETS_DATA_FILE)
+  : path.join(DATA_DIR, 'presets.json');
 
 async function readPresets() {
   try {

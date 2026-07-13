@@ -3,6 +3,11 @@ import type { WeatherSnapshot } from '../types';
 
 const REFRESH_MS = 10 * 60 * 1000;
 
+export interface LocationOverride {
+  lat: number;
+  lon: number;
+}
+
 interface WeatherApiResponse {
   temperatureC: number;
   precipitationMm: number;
@@ -11,6 +16,7 @@ interface WeatherApiResponse {
   weatherCode: number;
   isDay: boolean;
   source: 'client' | 'ip' | 'default';
+  utcOffsetSeconds?: number;
 }
 
 function getPosition(): Promise<GeolocationPosition | null> {
@@ -25,25 +31,39 @@ function getPosition(): Promise<GeolocationPosition | null> {
 }
 
 /**
- * Fetches live weather through the backend proxy, using browser geolocation
- * when granted and letting the server fall back to IP-based location
- * otherwise. Pass a non-null override to freeze/simulate a weather state
- * (used by the UI's "simulate" mode) instead of polling.
+ * Fetches live weather through the backend proxy. Resolution order:
+ * 1. `locationOverride`, when set (the location picker) — always used, browser
+ *    geolocation is skipped entirely.
+ * 2. Browser geolocation, when granted.
+ * 3. The server's own IP-based / default-location fallback.
+ * Pass a non-null `overrideWeather` to freeze/simulate a weather state (the
+ * UI's "simulate" mode) instead of polling either of the above.
  */
-export function useWeather(overrideWeather: WeatherSnapshot | null) {
+export function useWeather(overrideWeather: WeatherSnapshot | null, locationOverride?: LocationOverride | null) {
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (overrideWeather) return;
+    if (overrideWeather) return undefined;
     let cancelled = false;
 
     async function fetchWeather() {
       setLoading(true);
       try {
-        const pos = await getPosition();
-        const query = pos ? `?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}` : '';
+        let query = '';
+        let usedGeolocation = false;
+
+        if (locationOverride) {
+          query = `?lat=${locationOverride.lat}&lon=${locationOverride.lon}`;
+        } else {
+          const pos = await getPosition();
+          if (pos) {
+            query = `?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`;
+            usedGeolocation = true;
+          }
+        }
+
         const res = await fetch(`/api/weather${query}`);
         if (!res.ok) throw new Error(`weather API responded ${res.status}`);
         const data: WeatherApiResponse = await res.json();
@@ -55,7 +75,8 @@ export function useWeather(overrideWeather: WeatherSnapshot | null) {
           windSpeedKmh: data.windSpeedKmh,
           weatherCode: data.weatherCode,
           isDay: data.isDay,
-          source: pos ? 'client' : data.source,
+          source: locationOverride || usedGeolocation ? 'client' : data.source,
+          utcOffsetSeconds: data.utcOffsetSeconds,
         });
         setError(null);
       } catch (err) {
@@ -71,7 +92,7 @@ export function useWeather(overrideWeather: WeatherSnapshot | null) {
       cancelled = true;
       clearInterval(id);
     };
-  }, [overrideWeather]);
+  }, [overrideWeather, locationOverride?.lat, locationOverride?.lon]);
 
   return {
     weather: overrideWeather ?? weather,

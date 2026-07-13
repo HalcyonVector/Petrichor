@@ -61,6 +61,7 @@ router.get('/', async (req, res) => {
       weatherCode: data.current.weather_code,
       isDay: Boolean(data.current.is_day),
       fetchedAt: data.current.time,
+      utcOffsetSeconds: data.utc_offset_seconds,
     };
 
     cache.set(cacheKey, { expires: Date.now() + CACHE_MS, payload });

@@ -2,7 +2,7 @@ const PRIVATE_IP_PATTERNS = [
   /^127\./, /^10\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[0-1])\./, /^::1$/, /^::ffff:127\./,
 ];
 
-function isPrivateIp(ip) {
+export function isPrivateIp(ip) {
   if (!ip) return true;
   return PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(ip));
 }

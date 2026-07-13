@@ -1,4 +1,5 @@
 import type { AmbientParams, LiveInputs, ScaleName } from '../types';
+import { rainIntensity } from '../lib/weatherIntensity';
 
 function clamp(v: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, v));
@@ -13,7 +14,7 @@ function lerp(a: number, b: number, t: number): number {
  * cosine curve in between. Everything time-driven below is expressed in
  * terms of this single "how nighttime does it feel" value.
  */
-function nightness(hour: number): number {
+export function nightness(hour: number): number {
   return (Math.cos(((hour - 3) / 24) * 2 * Math.PI) + 1) / 2;
 }
 
@@ -56,7 +57,7 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   const warmth = clamp(0.3 + (temperatureC - 5) / 40);
   const padVoices = 3 + Math.round(warmth * 2.5);
 
-  const rainAmount = clamp(precipitationMm / 4);
+  const rainAmount = rainIntensity(precipitationMm);
   const hihatDensity = clamp(0.03 + rainAmount * 0.42 + activity.activity * 0.06);
 
   const windModulation = clamp(windSpeedKmh / 40);
