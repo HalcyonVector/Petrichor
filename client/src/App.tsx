@@ -199,7 +199,7 @@ export default function App() {
   const scaleLabel = effectiveParams.scaleMode.charAt(0).toUpperCase() + effectiveParams.scaleMode.slice(1);
   useMediaSession(
     started,
-    { title: `${scaleLabel} · ${Math.round(effectiveParams.tempo)} BPM`, artist: 'Ambient Weather Engine' },
+    { title: `${scaleLabel} · ${Math.round(effectiveParams.tempo)} BPM`, artist: 'Petrichor' },
     handleStart,
     handleStop,
   );
@@ -257,7 +257,7 @@ export default function App() {
       <div ref={mainRegionRef}>
         <SkyScene hour={inputs.hour} weather={inputs.weather} lightningTrigger={lightningTrigger} />
 
-        <div className="brand">Ambient Weather Engine</div>
+        <div className="brand">Petrichor</div>
 
         <main className="stage">
           {showOnboarding && <OnboardingHint onDismiss={dismissOnboarding} />}

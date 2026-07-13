@@ -1,5 +1,5 @@
 {
-  "name": "ambient-generator",
+  "name": "petrichor",
   "private": true,
   "version": "1.0.0",
   "description": "Procedural ambient/lo-fi music generator driven by time of day, live weather, and interaction activity.",

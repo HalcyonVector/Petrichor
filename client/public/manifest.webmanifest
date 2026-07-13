@@ -1,6 +1,6 @@
 {
-  "name": "Ambient Weather Engine",
-  "short_name": "Ambient",
+  "name": "Petrichor",
+  "short_name": "Petrichor",
   "description": "Procedural ambient music synthesized live from time of day, weather, and activity.",
   "start_url": "/",
   "scope": "/",

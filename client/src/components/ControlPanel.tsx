@@ -57,6 +57,61 @@ function fillVar(value: number, min: number, max: number): CSSProperties {
   return { '--val': (value - min) / (max - min) } as CSSProperties;
 }
 
+const ICON_PROPS = {
+  width: 14,
+  height: 14,
+  viewBox: '0 0 16 16',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.5,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+};
+
+function IconLink() {
+  return (
+    <svg {...ICON_PROPS}>
+      <path d="M6.5 9.5 9.5 6.5" />
+      <path d="M7 4.2 8.3 2.9a2.6 2.6 0 0 1 3.7 3.7L10.7 7.9M9 11.8l-1.3 1.3a2.6 2.6 0 0 1-3.7-3.7L5.3 8.1" />
+    </svg>
+  );
+}
+
+function IconCheck() {
+  return (
+    <svg {...ICON_PROPS}>
+      <path d="M3.2 8.4 6.3 11.5 12.8 5" />
+    </svg>
+  );
+}
+
+function IconPlay() {
+  return (
+    <svg {...ICON_PROPS} fill="currentColor" stroke="none">
+      <path d="M4.5 3.3v9.4a.6.6 0 0 0 .93.5l7.3-4.7a.6.6 0 0 0 0-1l-7.3-4.7a.6.6 0 0 0-.93.5Z" />
+    </svg>
+  );
+}
+
+function IconTrash() {
+  return (
+    <svg {...ICON_PROPS}>
+      <path d="M3.3 4.7h9.4" />
+      <path d="M6.2 4.7V3.3h3.6v1.4M6.7 7.3v3.6M9.3 7.3v3.6" />
+      <path d="M4.4 4.7 5 12.1c.05.6.55 1 1.15 1h3.7c.6 0 1.1-.4 1.15-1l.6-7.4" />
+    </svg>
+  );
+}
+
+function IconDroplet() {
+  return (
+    <svg {...ICON_PROPS} width={22} height={22}>
+      <path d="M8 2C8 2 3.3 7.6 3.3 10.4a4.7 4.7 0 0 0 9.4 0C12.7 7.6 8 2 8 2Z" />
+    </svg>
+  );
+}
+
 /** The "Studio" drawer: everything that shapes the sound but isn't part of the primary now-playing tray. */
 export function ControlPanel({
   simulate, onToggleSimulate, sim, onSimChange,
@@ -200,7 +255,7 @@ export function ControlPanel({
 
       <div className="hud-card">
         <h3>
-          Presets
+          <span>Presets</span>
           {presetsSource === 'local' && <span className="badge">offline · saved locally</span>}
         </h3>
         <div className="preset-save-row">
@@ -213,27 +268,46 @@ export function ControlPanel({
           />
           <button onClick={onSavePreset} disabled={!presetName.trim()}>Save</button>
         </div>
-        <button className="ghost share-link-btn" onClick={onCopyShareLink}>
-          {linkCopied ? '✓ Link copied' : 'Copy share link'}
+        <button
+          className={linkCopied ? 'share-link-btn share-link-btn--copied' : 'share-link-btn'}
+          onClick={onCopyShareLink}
+        >
+          {linkCopied ? <IconCheck /> : <IconLink />}
+          {linkCopied ? 'Link copied' : 'Copy share link'}
         </button>
-        <ul className="presets-list">
-          {presets.map((p) => (
-            <li key={p.name}>
-              <span>{p.name}</span>
-              <button className="ghost" onClick={() => onLoadPreset(p.name)} aria-label={`Load preset ${p.name}`}>
-                Load
-              </button>
-              <button
-                className="ghost danger"
-                onClick={() => onDeletePreset(p.name)}
-                aria-label={`Delete preset ${p.name}`}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-          {presets.length === 0 && <li className="empty">No presets saved yet.</li>}
-        </ul>
+
+        {presets.length > 0 ? (
+          <ul className="presets-list">
+            {presets.map((p) => (
+              <li key={p.name}>
+                <span>{p.name}</span>
+                <button
+                  className="preset-action-btn"
+                  onClick={() => onLoadPreset(p.name)}
+                  aria-label={`Load preset ${p.name}`}
+                >
+                  <IconPlay /> Load
+                </button>
+                <button
+                  className="preset-action-btn preset-action-btn--danger"
+                  onClick={() => onDeletePreset(p.name)}
+                  aria-label={`Delete preset ${p.name}`}
+                >
+                  <IconTrash />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="presets-empty">
+            <IconDroplet />
+            <p>
+              No presets saved yet.
+              <br />
+              Dial in a sound and save it here.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

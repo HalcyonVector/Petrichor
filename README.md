@@ -1,4 +1,4 @@
-# Ambient Weather Engine: Procedural Generative Music from Live Weather, Time & Activity
+# Petrichor: Procedural Generative Music from Live Weather, Time & Activity
 
 A full-stack generative ambient/lo-fi music engine that composes and synthesizes music **in real time, with no sample playback**: every pad, bass note, arpeggio, hi-hat, and rain texture is built from oscillators, filters, and envelopes via the Web Audio API, continuously reshaped by the time of day, live weather at your location, and how actively you're using the page. The same inputs drive a full-viewport animated sky: sun/moon position, stars, and rain are the visual read-out of exactly what the audio engine is reacting to, not a themed skin bolted on afterward. Built with React, TypeScript, Tone.js, and Express.
 
