@@ -20,17 +20,27 @@ function extractClientIp(req) {
  */
 export async function geolocateRequest(req) {
   const ip = extractClientIp(req);
-  if (isPrivateIp(ip)) return null;
+  if (isPrivateIp(ip)) {
+    console.error(`[geolocateIp] skipped: client IP "${ip}" looks private/internal`);
+    return null;
+  }
 
   try {
     const res = await fetch(`https://ipapi.co/${ip}/json/`, {
       signal: AbortSignal.timeout(3000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[geolocateIp] ipapi.co responded ${res.status} for ip ${ip}`);
+      return null;
+    }
     const data = await res.json();
-    if (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return null;
+    if (typeof data.latitude !== 'number' || typeof data.longitude !== 'number') {
+      console.error(`[geolocateIp] ipapi.co returned no coordinates for ip ${ip}:`, data);
+      return null;
+    }
     return { lat: data.latitude, lon: data.longitude, city: data.city ?? null, source: 'ip' };
-  } catch {
+  } catch (err) {
+    console.error(`[geolocateIp] lookup failed for ip ${ip}:`, err.message);
     return null;
   }
 }

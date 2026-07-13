@@ -25,7 +25,7 @@ function getPosition(): Promise<GeolocationPosition | null> {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(pos),
       () => resolve(null),
-      { timeout: 5000, maximumAge: 10 * 60 * 1000 },
+      { timeout: 15000, maximumAge: 10 * 60 * 1000 },
     );
   });
 }
