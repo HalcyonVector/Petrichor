@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AudioEngine, type MixLayer } from './audio/AudioEngine';
+import { AudioEngine, type EngineListener, type MixLayer } from './audio/AudioEngine';
 import { useTimeOfDay } from './inputs/useTimeOfDay';
 import { useWeather } from './inputs/useWeather';
 import { useActivity } from './inputs/useActivity';
@@ -68,6 +68,23 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [focus, setFocus] = useState(() => loadStoredFocus());
   const [fading, setFading] = useState(false);
+  const [chord, setChord] = useState<string | null>(null);
+  const [keyCue, setKeyCue] = useState(0);
+
+  const subscribeEngine = useCallback(
+    (listener: EngineListener) => engineRef.current?.onEvent(listener) ?? (() => {}),
+    [],
+  );
+
+  useEffect(
+    () =>
+      subscribeEngine((event) => {
+        if (event.type !== 'chord') return;
+        setChord(event.name);
+        if (event.keyChanged) setKeyCue((n) => n + 1);
+      }),
+    [subscribeEngine],
+  );
 
   const dismissOnboarding = () => {
     setShowOnboarding(false);
@@ -200,6 +217,7 @@ export default function App() {
     engineRef.current?.stop();
     setStarted(false);
     setFading(false);
+    setChord(null);
   };
 
   // Refs so the Space-bar listener below always calls the freshest
@@ -214,6 +232,17 @@ export default function App() {
     setFading(true);
     engineRef.current?.fadeOut(remainingMs / 1000).then(() => handleStopRef.current());
   });
+  const placeLabel = simulate
+    ? 'Simulated weather'
+    : locationOverride?.label ??
+      (weather?.source === 'client'
+        ? 'Your location'
+        : weather?.source === 'ip'
+          ? 'Approximate location'
+          : weather
+            ? 'Default location'
+            : null);
+
   const sleepLabel = fading
     ? 'FADING OUT'
     : sleepTimer.endsAt !== null
@@ -292,7 +321,12 @@ export default function App() {
   return (
     <div className="app">
       <div ref={mainRegionRef}>
-        <SkyScene hour={inputs.hour} weather={inputs.weather} lightningTrigger={lightningTrigger} />
+        <SkyScene
+          hour={inputs.hour}
+          weather={inputs.weather}
+          lightningTrigger={lightningTrigger}
+          subscribe={subscribeEngine}
+        />
 
         <div className="brand">Petrichor</div>
 
@@ -302,6 +336,9 @@ export default function App() {
             hour={inputs.hour}
             weather={inputs.weather}
             weatherOffline={weatherStatus === 'offline'}
+            place={placeLabel}
+            chord={started ? chord : null}
+            keyCue={keyCue}
             params={playedParams}
             isManual={manualParams !== null}
             focus={focus}

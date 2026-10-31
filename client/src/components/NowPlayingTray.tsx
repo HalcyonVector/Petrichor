@@ -12,6 +12,12 @@ interface NowPlayingTrayProps {
   weather: WeatherSnapshot | null;
   /** True when the weather fetch failed and there's no earlier reading. */
   weatherOffline: boolean;
+  /** Where the weather is from: a picked city, "Your location", etc. */
+  place: string | null;
+  /** The chord sounding right now, e.g. "Am". */
+  chord: string | null;
+  /** Increments when the key or mode changes, to replay the highlight. */
+  keyCue: number;
   params: AmbientParams;
   isManual: boolean;
   focus: boolean;
@@ -33,27 +39,41 @@ interface NowPlayingTrayProps {
 }
 
 export function NowPlayingTray({
-  hour, weather, weatherOffline, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
+  hour, weather, weatherOffline, place, chord, keyCue, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
   volume, onVolumeChange,
   isRecording, recordingUrl, recordingError, onStartRecording, onStopRecording,
   drawerOpen, onToggleDrawer, drawerToggleRef,
 }: NowPlayingTrayProps) {
-  const meta = [
-    weatherLabel(weather, weatherOffline),
-    weather ? `${Math.round(weather.temperatureC)}°C` : null,
-    `${keyName(params.rootNote)} ${params.scaleMode.toUpperCase()}`,
+  const before = [weatherLabel(weather, weatherOffline), weather ? `${Math.round(weather.temperatureC)}°C` : null];
+  const keyLabel = `${keyName(params.rootNote)} ${params.scaleMode.toUpperCase()}`;
+  const after = [
     `${Math.round(params.tempo)} BPM`,
     isManual ? 'PRESET' : null,
     focus ? 'FOCUS' : null,
     sleepLabel,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ];
+  const join = (parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
 
   return (
     <div className="tray">
+      <div className="tray-top">
+        <span className="tray-place">{place ?? '\u00a0'}</span>
+        {chord && (
+          <span key={chord} className="tray-chord" title="Chord playing now">
+            {chord}
+          </span>
+        )}
+      </div>
       <div className="tray-time">{formatClock(hour)}</div>
-      <div className="tray-meta">{meta}</div>
+      <div className="tray-meta">
+        {join(before)}
+        {' · '}
+        <span key={keyCue} className={keyCue > 0 ? 'tray-meta-key tray-meta-key--changed' : 'tray-meta-key'}>
+          {keyLabel}
+        </span>
+        {' · '}
+        {join(after)}
+      </div>
 
       <Visualizer analyser={analyser} active={started} />
 

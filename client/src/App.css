@@ -1097,3 +1097,84 @@ input[type="text"] {
   background: var(--brass);
   color: #1a1206;
 }
+
+/* ============ Sky reacting to the music (see sky/useSkyReactions.ts) ============ */
+
+.sky-body-pulse {
+  position: absolute;
+  inset: -70%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 228, 170, 0.55) 0%, rgba(255, 210, 140, 0.18) 40%, transparent 68%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sky-chord-wash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sky-chord-wash[data-tone='warm'] {
+  background: radial-gradient(ellipse at 50% 100%, rgba(255, 190, 110, 0.9), transparent 70%);
+}
+
+.sky-chord-wash[data-tone='cool'] {
+  background: radial-gradient(ellipse at 50% 100%, rgba(120, 150, 255, 0.9), transparent 70%);
+}
+
+/* ============ Now playing: place, chord, key change ============ */
+
+.tray-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 22px;
+  margin-bottom: 6px;
+}
+
+.tray-place {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tray-chord {
+  flex-shrink: 0;
+  min-width: 34px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 197, 104, 0.35);
+  background: rgba(242, 197, 104, 0.1);
+  color: #f2d39a;
+  font-family: var(--font-display);
+  font-size: 14px;
+  text-align: center;
+  animation: chord-in 0.9s ease;
+}
+
+@keyframes chord-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tray-meta-key--changed {
+  animation: key-flash 3s ease;
+}
+
+@keyframes key-flash {
+  0% { color: var(--brass); text-shadow: 0 0 10px rgba(242, 197, 104, 0.7); }
+  100% { color: inherit; text-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tray-chord, .tray-meta-key--changed { animation: none; }
+}

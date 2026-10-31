@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { drumHitsForStep } from './drumPattern';
-import { buildChord, midiToNoteName, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
+import { buildChord, chordName, midiToNoteName, triadQuality, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
 import type { ScaleName } from '../types';
 import type { AmbientParams } from '../types';
 
@@ -32,6 +32,14 @@ function usePlaybackContext() {
   playbackContextReady = true;
   Tone.setContext(new Tone.Context({ latencyHint: 'playback', lookAhead: 0.25 }));
 }
+
+/** Musical moments the UI can react to. Delivered in sync with the audio (via Tone's Draw), not when scheduled. */
+export type EngineEvent =
+  | { type: 'kick'; velocity: number }
+  | { type: 'note' }
+  | { type: 'chord'; name: string; major: boolean; keyChanged: boolean };
+
+export type EngineListener = (event: EngineEvent) => void;
 
 export type MixLayer = 'pad' | 'bass' | 'arp' | 'hihat' | 'drums' | 'rain';
 
@@ -105,6 +113,8 @@ export class AudioEngine {
   private arpLoop?: Tone.Loop;
   private hihatLoop?: Tone.Loop;
   private drumLoop?: Tone.Loop;
+
+  private listeners = new Set<EngineListener>();
 
   private recordingDestination?: MediaStreamAudioDestinationNode;
 
@@ -303,6 +313,20 @@ export class AudioEngine {
     return this.recordingDestination.stream;
   }
 
+  /** Subscribe to musical events (chords, arp notes, kicks). Returns an unsubscribe function. */
+  onEvent(listener: EngineListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /** Fires listeners at the moment `time` is actually heard, not when it was scheduled ahead. */
+  private emit(event: EngineEvent, time: number) {
+    if (this.listeners.size === 0) return;
+    Tone.getDraw().schedule(() => this.listeners.forEach((listener) => listener(event)), time);
+  }
+
   /**
    * Focus mode: calmer harmony (I/IV/vi only, chords held longer) and no
    * thunder. The parameter side of focus mode (quieter arp and drums) is
@@ -443,6 +467,15 @@ export class AudioEngine {
       const chord = buildChord(root, scale, this.chordDegree, chordSize);
       const notes = chord.map(midiToNoteName);
       this.padSynth.triggerAttackRelease(notes, '2m', time);
+      this.emit(
+        {
+          type: 'chord',
+          name: chordName(root, scale, this.chordDegree),
+          major: triadQuality(root, scale, this.chordDegree) === '',
+          keyChanged: harmonyChanged,
+        },
+        time,
+      );
 
       if (Math.random() < 0.65) {
         // The bass follows the chord's own root, which is what makes the
@@ -459,6 +492,7 @@ export class AudioEngine {
       const degree = this.chordDegree + offsets[Math.floor(Math.random() * offsets.length)];
       const midi = scaleDegreeToMidi(root, this.harmonyScale, degree);
       this.arpSynth.triggerAttackRelease(midiToNoteName(midi), '8n', time);
+      this.emit({ type: 'note' }, time);
     }, '8n').start(0);
 
     this.hihatLoop = new Tone.Loop((time) => {
@@ -473,7 +507,10 @@ export class AudioEngine {
     this.drumLoop = new Tone.Loop((time) => {
       const step = Math.round(Tone.getTransport().getTicksAtTime(time) / ticksPer16th) % 16;
       const { kick, rim } = drumHitsForStep(step, this.params.drumDensity ?? FALLBACK_DRUM_DENSITY);
-      if (kick > 0) this.kick.triggerAttackRelease('F1', '8n', time, kick);
+      if (kick > 0) {
+        this.kick.triggerAttackRelease('F1', '8n', time, kick);
+        this.emit({ type: 'kick', velocity: kick }, time);
+      }
       if (rim > 0) this.rim.triggerAttackRelease('32n', time, rim);
     }, '16n').start(0);
   }

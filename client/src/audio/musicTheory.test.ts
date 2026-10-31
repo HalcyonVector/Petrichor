@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildChord, keyName, keyRootForDay, midiToNoteName, nextChordDegree, pickWeighted, randomWalkDegree, scaleDegreeToMidi } from './musicTheory';
+import { buildChord, chordName, triadQuality, keyName, keyRootForDay, midiToNoteName, nextChordDegree, pickWeighted, randomWalkDegree, scaleDegreeToMidi } from './musicTheory';
 
 describe('scaleDegreeToMidi', () => {
   it('degree 0 is the root', () => {
@@ -115,5 +115,18 @@ describe('keyRootForDay', () => {
 
   it('falls back to C for non-finite input', () => {
     expect(keyRootForDay(Number.NaN)).toBe(48);
+  });
+});
+
+describe('chordName', () => {
+  it('names the diatonic triads of C major', () => {
+    const names = [0, 1, 2, 3, 4, 5, 6].map((d) => chordName(48, 'major', d));
+    expect(names).toEqual(['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim']);
+  });
+
+  it('follows the mode and key', () => {
+    expect(chordName(45, 'minor', 0)).toBe('Am');
+    expect(chordName(50, 'dorian', 3)).toBe('G');
+    expect(triadQuality(48, 'minor', 0)).toBe('m');
   });
 });

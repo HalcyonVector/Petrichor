@@ -1,4 +1,5 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo, useRef, type CSSProperties } from 'react';
+import { useSkyReactions, type EngineSubscribe } from '../sky/useSkyReactions';
 import { nightness } from '../mapping/parameterMapping';
 import { rainIntensity } from '../lib/weatherIntensity';
 import { isSnowing } from '../lib/weatherCode';
@@ -17,6 +18,8 @@ interface SkyProps {
   weather: WeatherSnapshot | null;
   /** Increments on each lightning strike; 0 means "none yet". See useLightning. */
   lightningTrigger?: number;
+  /** Engine event subscription, so the sky can react to kicks, notes and chords. */
+  subscribe?: EngineSubscribe;
 }
 
 const STAR_COUNT = 70;
@@ -102,7 +105,13 @@ function horizonPolygonPoints(heights: number[]): string {
  * sun/moon position, star density, and rain all move because the inputs
  * moved, the same way the sound does.
  */
-export function SkyScene({ hour, weather, lightningTrigger = 0 }: SkyProps) {
+export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: SkyProps) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const starsRef = useRef<HTMLDivElement>(null);
+  const particlesRef = useRef<HTMLDivElement>(null);
+  const washRef = useRef<HTMLDivElement>(null);
+  useSkyReactions(subscribe, { body: bodyRef, stars: starsRef, particles: particlesRef, wash: washRef });
+
   const stars = useMemo(seededStars, []);
   const clouds = useMemo(seededClouds, []);
   const particles = useMemo(seededParticles, []);
@@ -153,7 +162,7 @@ export function SkyScene({ hour, weather, lightningTrigger = 0 }: SkyProps) {
       style={{ background: `linear-gradient(180deg, ${gradient.top} 0%, ${gradient.bottom} 100%)` }}
       aria-hidden="true"
     >
-      <div className="sky-stars" style={{ opacity: starOpacity }}>
+      <div ref={starsRef} className="sky-stars" style={{ opacity: starOpacity }}>
         {stars.map((s, i) => (
           <span
             key={i}
@@ -185,6 +194,7 @@ export function SkyScene({ hour, weather, lightningTrigger = 0 }: SkyProps) {
       ))}
 
       <div
+        ref={bodyRef}
         className={`sky-body sky-body--${body}`}
         style={{
           left: `${pos.xPct}%`,
@@ -194,7 +204,11 @@ export function SkyScene({ hour, weather, lightningTrigger = 0 }: SkyProps) {
             body === 'sun' ? 'rgba(255, 220, 150, 0.35)' : 'rgba(233, 217, 172, 0.28)'
           }`,
         }}
-      />
+      >
+        <span className="sky-body-pulse" />
+      </div>
+
+      <div ref={washRef} className="sky-chord-wash" data-tone="warm" />
 
       {dropCount > 0 && (
         <div className="sky-rain">
@@ -251,7 +265,7 @@ export function SkyScene({ hour, weather, lightningTrigger = 0 }: SkyProps) {
 
       <div className="sky-horizon-fade" />
 
-      <div className="sky-particles">
+      <div ref={particlesRef} className="sky-particles">
         {particles.map((p, i) => (
           <span
             key={i}
