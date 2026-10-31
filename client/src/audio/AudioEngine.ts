@@ -88,6 +88,7 @@ export class AudioEngine {
   // to sounding voices on every (frequent) parameter update.
   private appliedPadTone = '';
   private appliedDampening = -1;
+  private appliedTempo = Number.NaN;
   private analyser!: Tone.Analyser;
   private reverb!: Tone.Reverb;
   private padFilter!: Tone.Filter;
@@ -216,6 +217,7 @@ export class AudioEngine {
     this.thunderSynth.connect(this.thunderFilter);
 
     Tone.getTransport().bpm.value = this.params.tempo;
+    this.appliedTempo = this.params.tempo;
     Tone.getTransport().swingSubdivision = '16n';
     Tone.getTransport().swing = SWING;
 
@@ -375,7 +377,16 @@ export class AudioEngine {
     this.params = next;
     if (!this.built) return;
 
-    Tone.getTransport().bpm.rampTo(next.tempo, 4);
+    // Only ramp when the tempo really changes, and ramp linearly. Tone ramps
+    // BPM exponentially by default, and its tick maths over an exponential
+    // ramp between two equal values is 0/0: the transport clock then
+    // computes NaN/-Infinity tick times and throws on every tick. That
+    // happened whenever params were re-applied with an unchanged tempo
+    // (constantly in Simulate mode, where the hour doesn't move).
+    if (Math.abs(next.tempo - this.appliedTempo) > 0.05) {
+      this.appliedTempo = next.tempo;
+      Tone.getTransport().bpm.linearRampTo(next.tempo, 4);
+    }
 
     const cutoffCenter = 200 + next.brightness * 4200;
     const cutoffSpread = 250 + next.windModulation * 900;
@@ -531,5 +542,6 @@ export class AudioEngine {
     this.built = false;
     this.appliedPadTone = '';
     this.appliedDampening = -1;
+    this.appliedTempo = Number.NaN;
   }
 }
