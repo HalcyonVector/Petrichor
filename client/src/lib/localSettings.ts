@@ -100,3 +100,21 @@ export function markOnboardingSeen(): void {
     // quota exceeded or storage disabled; the hint just reappears next visit
   }
 }
+
+const FOCUS_KEY = 'ambient-weather-engine:focus';
+
+export function loadStoredFocus(): boolean {
+  try {
+    return localStorage.getItem(FOCUS_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function saveStoredFocus(focus: boolean): void {
+  try {
+    localStorage.setItem(FOCUS_KEY, String(focus));
+  } catch {
+    // quota exceeded or storage disabled; focus mode just resets next visit
+  }
+}
