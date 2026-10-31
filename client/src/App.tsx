@@ -26,6 +26,9 @@ import {
 import { SkyScene } from './components/SkyScene';
 import { NowPlayingTray } from './components/NowPlayingTray';
 import { OnboardingHint } from './components/OnboardingHint';
+import { HorizonBand } from './components/HorizonBand';
+import { ImmersiveOverlay } from './components/ImmersiveOverlay';
+import { weatherLabel } from './lib/weatherLabel';
 import { ControlPanel, type SimState, type StudioSection } from './components/ControlPanel';
 import { StatusPanel } from './components/StatusPanel';
 import type { AmbientParams, LiveInputs, Preset, WeatherSnapshot } from './types';
@@ -58,6 +61,9 @@ export default function App() {
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const drawerToggleRef = useRef<HTMLButtonElement>(null);
   const drawerHasMounted = useRef(false);
+  const immersiveToggleRef = useRef<HTMLButtonElement>(null);
+  const immersiveRef = useRef<HTMLDivElement>(null);
+  const immersiveHasMounted = useRef(false);
 
   const [started, setStarted] = useState(false);
   const [volume, setVolume] = useState(() => loadStoredVolume(0.85));
@@ -76,6 +82,11 @@ export default function App() {
   const [fading, setFading] = useState(false);
   const [chord, setChord] = useState<string | null>(null);
   const [studioTab, setStudioTab] = useState<StudioSection>('sound');
+  const [immersive, setImmersive] = useState(false);
+  const reducedMotion = useMemo(
+    () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+    [],
+  );
   const [keyCue, setKeyCue] = useState(0);
 
   const subscribeEngine = useCallback(
@@ -123,8 +134,30 @@ export default function App() {
   // reader at a time, matching what's visible. Without this, the drawer's
   // controls stay tabbable while slid off-screen and closed, and the sky's
   // controls stay reachable behind the open drawer's backdrop.
+  // Immersive view: Escape returns, focus moves into the overlay on entry
+  // and back to its toggle on exit, and the hidden tray can't be tabbed to.
   useEffect(() => {
-    if (mainRegionRef.current) mainRegionRef.current.inert = drawerOpen;
+    if (!immersive) return undefined;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setImmersive(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [immersive]);
+
+  useEffect(() => {
+    if (!immersiveHasMounted.current) {
+      immersiveHasMounted.current = true;
+      return;
+    }
+    // Unlock the main view before focusing back into it; an inert element can't take focus.
+    if (mainRegionRef.current) mainRegionRef.current.inert = drawerOpen || immersive;
+    if (immersive) immersiveRef.current?.focus();
+    else immersiveToggleRef.current?.focus();
+  }, [immersive]);
+
+  useEffect(() => {
+    if (mainRegionRef.current) mainRegionRef.current.inert = drawerOpen || immersive;
     if (drawerRef.current) drawerRef.current.inert = !drawerOpen;
 
     if (!drawerHasMounted.current) {
@@ -133,7 +166,12 @@ export default function App() {
     }
     if (drawerOpen) drawerCloseRef.current?.focus();
     else drawerToggleRef.current?.focus();
+    // Focus only follows the drawer; immersive mode manages its own focus below.
   }, [drawerOpen]);
+
+  useEffect(() => {
+    if (mainRegionRef.current) mainRegionRef.current.inert = drawerOpen || immersive;
+  }, [drawerOpen, immersive]);
 
   const simWeather: WeatherSnapshot | null = simulate
     ? {
@@ -326,7 +364,7 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className={immersive ? 'app app--immersive' : 'app'}>
       <div ref={mainRegionRef}>
         <SkyScene
           hour={inputs.hour}
@@ -364,9 +402,32 @@ export default function App() {
             drawerOpen={drawerOpen}
             onToggleDrawer={() => setDrawerOpen((v) => !v)}
             drawerToggleRef={drawerToggleRef}
+            onEnterImmersive={() => {
+              setDrawerOpen(false);
+              setImmersive(true);
+              if (showOnboarding) dismissOnboarding();
+            }}
+            immersiveToggleRef={immersiveToggleRef}
           />
         </main>
       </div>
+
+      {immersive && !reducedMotion && (
+        <HorizonBand analyser={engineRef.current.getAnalyser()} active={started} />
+      )}
+      {immersive && (
+        <ImmersiveOverlay
+          containerRef={immersiveRef}
+          chord={chord}
+          keyLabel={scaleLabel}
+          place={placeLabel}
+          weather={weatherLabel(inputs.weather, weatherStatus === 'offline')}
+          hour={inputs.hour}
+          started={started}
+          keyCue={keyCue}
+          onExit={() => setImmersive(false)}
+        />
+      )}
 
       {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
 
