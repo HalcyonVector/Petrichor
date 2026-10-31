@@ -122,7 +122,7 @@ export default function App() {
         source: 'client',
       }
     : null;
-  const { weather } = useWeather(simWeather, !simulate ? locationOverride : null);
+  const { weather, status: weatherStatus } = useWeather(simWeather, !simulate ? locationOverride : null);
   const activity = useActivity(simulate ? sim.activity : null);
   // When a location override is active, the hour reflects that place's
   // actual local time (from the weather response's UTC offset), not
@@ -301,6 +301,7 @@ export default function App() {
           <NowPlayingTray
             hour={inputs.hour}
             weather={inputs.weather}
+            weatherOffline={weatherStatus === 'offline'}
             params={playedParams}
             isManual={manualParams !== null}
             focus={focus}
@@ -368,7 +369,7 @@ export default function App() {
             onSetSleep={sleepTimer.set}
           />
 
-          <StatusPanel inputs={inputs} params={playedParams} isManual={manualParams !== null} />
+          <StatusPanel inputs={inputs} weatherOffline={weatherStatus === 'offline'} params={playedParams} isManual={manualParams !== null} />
 
           <p className="drawer-footnote">
             Synthesis engine built on Tone.js oscillators, filters, and envelopes (no samples). Weather via

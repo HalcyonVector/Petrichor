@@ -308,7 +308,7 @@
 
 .visualizer {
   width: 100%;
-  height: 32px;
+  height: 44px;
   display: block;
   margin-top: 14px;
 }
@@ -384,34 +384,51 @@
   flex: 1;
 }
 
-.tray-dot, .tray-download, .tray-drawer-toggle {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+.tray-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
   cursor: pointer;
   flex-shrink: 0;
-  font-size: 12px;
-  text-decoration: none;
-  color: var(--ink-dim);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.tray-dot {
-  color: #ff9b9b;
+.tray-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--ink);
 }
 
-.tray-dot:disabled {
+.tray-pill--icon {
+  width: 32px;
+  padding: 0;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.tray-rec svg {
+  color: #ff8f8f;
+}
+
+.tray-rec:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.tray-dot--live {
-  background: rgba(255, 75, 75, 0.25);
+.tray-rec--live {
+  background: rgba(255, 75, 75, 0.22);
   border-color: rgba(255, 75, 75, 0.6);
+  color: #ffd0d0;
   animation: tray-pulse 1.4s ease-in-out infinite;
 }
 
@@ -420,14 +437,15 @@
   50% { box-shadow: 0 0 0 6px rgba(255, 75, 75, 0); }
 }
 
-.tray-download {
-  color: var(--ink);
-  font-size: 13px;
-}
-
 .tray-drawer-toggle--open {
   color: var(--brass);
   border-color: var(--brass-soft);
+}
+
+/* Narrow phones: icons only, the labels live on in aria-label/title. */
+@media (max-width: 360px) {
+  .tray-pill-label { display: none; }
+  .tray-pill { width: 32px; padding: 0; justify-content: center; }
 }
 
 .tray-error {
@@ -437,7 +455,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tray-dot--live { animation: none; }
+  .tray-rec--live { animation: none; }
 }
 
 /* ============ Studio drawer ============ */

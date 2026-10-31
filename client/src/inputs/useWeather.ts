@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import type { WeatherSnapshot } from '../types';
 
 const REFRESH_MS = 10 * 60 * 1000;
+/** After a failed fetch, retry sooner than the normal refresh: 30s, 60s, 120s... capped at REFRESH_MS. */
+export function retryDelayMs(consecutiveFailures: number): number {
+  return Math.min(REFRESH_MS, 30_000 * 2 ** Math.max(0, consecutiveFailures - 1));
+}
+
+/** 'offline' means the last attempt failed and there's no earlier reading to fall back on. */
+export type WeatherStatus = 'loading' | 'live' | 'offline' | 'simulated';
 
 export interface LocationOverride {
   lat: number;
@@ -47,6 +54,8 @@ export function useWeather(overrideWeather: WeatherSnapshot | null, locationOver
   useEffect(() => {
     if (overrideWeather) return undefined;
     let cancelled = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     async function fetchWeather() {
       setLoading(true);
@@ -79,24 +88,37 @@ export function useWeather(overrideWeather: WeatherSnapshot | null, locationOver
           utcOffsetSeconds: data.utcOffsetSeconds,
         });
         setError(null);
+        failures = 0;
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'weather fetch failed');
+        failures++;
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          timer = setTimeout(fetchWeather, failures > 0 ? retryDelayMs(failures) : REFRESH_MS);
+        }
       }
     }
 
     fetchWeather();
-    const id = setInterval(fetchWeather, REFRESH_MS);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      clearTimeout(timer);
     };
   }, [overrideWeather, locationOverride?.lat, locationOverride?.lon]);
+
+  const status: WeatherStatus = overrideWeather
+    ? 'simulated'
+    : weather
+      ? 'live'
+      : error && !loading
+        ? 'offline'
+        : 'loading';
 
   return {
     weather: overrideWeather ?? weather,
     loading: overrideWeather ? false : loading,
     error,
+    status,
   };
 }

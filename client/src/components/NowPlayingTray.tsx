@@ -4,11 +4,14 @@ import type { AmbientParams, WeatherSnapshot } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { weatherLabel } from '../lib/weatherLabel';
 import { Visualizer } from './Visualizer';
+import { IconClose, IconDownload, IconRecord, IconSliders, IconStopRecord } from './trayIcons';
 import { keyName } from '../audio/musicTheory';
 
 interface NowPlayingTrayProps {
   hour: number;
   weather: WeatherSnapshot | null;
+  /** True when the weather fetch failed and there's no earlier reading. */
+  weatherOffline: boolean;
   params: AmbientParams;
   isManual: boolean;
   focus: boolean;
@@ -30,13 +33,13 @@ interface NowPlayingTrayProps {
 }
 
 export function NowPlayingTray({
-  hour, weather, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
+  hour, weather, weatherOffline, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
   volume, onVolumeChange,
   isRecording, recordingUrl, recordingError, onStartRecording, onStopRecording,
   drawerOpen, onToggleDrawer, drawerToggleRef,
 }: NowPlayingTrayProps) {
   const meta = [
-    weatherLabel(weather),
+    weatherLabel(weather, weatherOffline),
     weather ? `${Math.round(weather.temperatureC)}°C` : null,
     `${keyName(params.rootNote)} ${params.scaleMode.toUpperCase()}`,
     `${Math.round(params.tempo)} BPM`,
@@ -76,36 +79,38 @@ export function NowPlayingTray({
         />
 
         <button
-          className={`tray-dot${isRecording ? ' tray-dot--live' : ''}`}
+          className={`tray-pill tray-rec${isRecording ? ' tray-rec--live' : ''}`}
           onClick={isRecording ? onStopRecording : onStartRecording}
           disabled={!started}
           aria-label={isRecording ? 'Stop recording' : 'Record'}
-          title={isRecording ? 'Stop recording' : 'Record'}
+          title={started ? (isRecording ? 'Stop recording' : 'Record this session') : 'Start playback to record'}
         >
-          ●
+          {isRecording ? <IconStopRecord /> : <IconRecord />}
+          <span className="tray-pill-label">{isRecording ? 'Stop' : 'Rec'}</span>
         </button>
 
         {recordingUrl && (
           <a
-            className="tray-download"
+            className="tray-pill tray-pill--icon"
             href={recordingUrl}
-            download={`ambient-session-${Date.now()}.webm`}
+            download={`petrichor-session-${Date.now()}.webm`}
             aria-label="Download recording"
             title="Download recording"
           >
-            ⬇
+            <IconDownload />
           </a>
         )}
 
         <button
           ref={drawerToggleRef}
-          className={`tray-drawer-toggle${drawerOpen ? ' tray-drawer-toggle--open' : ''}`}
+          className={`tray-pill tray-drawer-toggle${drawerOpen ? ' tray-drawer-toggle--open' : ''}`}
           onClick={onToggleDrawer}
           aria-label={drawerOpen ? 'Close studio panel' : 'Open studio panel'}
           aria-expanded={drawerOpen}
-          title="Studio"
+          title="Studio: focus, sleep timer, mixer, presets"
         >
-          {drawerOpen ? '✕' : '⚙'}
+          {drawerOpen ? <IconClose /> : <IconSliders />}
+          <span className="tray-pill-label">Studio</span>
         </button>
       </div>
 
