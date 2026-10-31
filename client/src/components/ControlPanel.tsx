@@ -21,6 +21,7 @@ const WEATHER_TYPES: { key: string; label: string; code: number }[] = [
   { key: 'rain', label: 'Rain', code: 63 },
   { key: 'snow', label: 'Snow', code: 73 },
   { key: 'storm', label: 'Storm', code: 95 },
+  { key: 'fog', label: 'Fog', code: 45 },
 ];
 
 const MIX_LAYERS: { key: MixLayer; label: string }[] = [

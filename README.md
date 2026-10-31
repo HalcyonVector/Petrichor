@@ -71,6 +71,8 @@ This project is for personal and educational use. It is **not a medical, therape
 - The background **is** the interface, not decoration on top of one: a full-viewport sky whose gradient, sun/moon arc position, star density, and rain streaks are computed directly from the real hour and weather (`sky/skyMath.ts`, pure and unit-tested). These are the same inputs driving the synthesis engine, rendered instead of just logged
 - Atmospheric depth beyond the flat gradient: a distant rolling-hills silhouette (tinted with the same day→night blend as the sky), a warm horizon glow that blooms in specifically around real sunrise/sunset and fades once the sun clears the horizon, and a field of slow-drifting ambient particles so the scene stays alive even on a still, clear, cloudless day
 - **The sky answers the music** (`sky/useSkyReactions.ts`): the engine emits chord, arp-note and kick events in sync with the audio, and the sun/moon glow pulses with each kick, a star (or a drifting mote by day) flares on arp notes, and the light washes warm on major chords and cool on minor ones. Driven by the Web Animations API, so it never re-renders React; off under `prefers-reduced-motion`
+- **Weather scenes** (`sky/sceneMath.ts`, pure and unit-tested): an aurora of tilted green/blue/violet light curtains on dark, clear, dry nights; fog banks rolling along the hills on a WMO fog code (or as a haze above 75% cloud); and in rain, ripples spreading on the ground with a soft, broken reflection of the sun or moon. Simulate mode has a "Fog" weather type to preview it
+- **Immersive view** (the expand button in the tray): the tray fades away, leaving the sky, the current chord and key in large type, and a wide aurora-like band of light along the horizon (`components/HorizonBand.tsx`) whose ribbons rise and sway with the music's loudness and waveform. The cursor and exit hint fade after a few idle seconds; click anywhere or press Escape to return. Space still plays/stops
 - Precipitation renders as rain or snow depending on the actual weather type, and a thunderstorm brings a randomized screen-flash lightning strike (`useLightning.ts`) paired with a low rumbling boom from the audio engine (`AudioEngine.triggerThunder()`); both are skipped under `prefers-reduced-motion` for the visual side
 - A single minimal glass "now playing" tray floats at the bottom: where the weather is from (a picked city, "Your location", "Simulated weather"...), the chord playing now, the time, a weather/key/mode/tempo readout (the key briefly lights up when it changes), a glowing auto-gained waveform that gently "breathes" while stopped, and labeled play, volume, Rec and Studio controls. If the weather can't be fetched it says WEATHER OFFLINE and retries (30s, 60s, 120s...) instead of loading forever
 - Every other control lives in the "Studio" drawer, split into three tabs (arrow keys move between them): **Sound** (focus mode, sleep timer, mixer), **Source** (Live/Simulate, location picker, the full input/parameter readout) and **Presets**. It's styled as an instrument HUD with corner-bracketed panels and the same glowing brass slider skin used everywhere else. Closeable three ways (the close button, clicking outside, or Escape)
@@ -198,6 +200,9 @@ ambient-weather-engine/
         │   └── drumPattern.test.ts
         ├── sky/
         │   ├── skyMath.ts            # sun/moon arc, sky gradient, star opacity (pure)
+        │   ├── sceneMath.ts          # fog / aurora / rain-ripple amounts (pure)
+        │   ├── sceneMath.test.ts
+        │   ├── useSkyReactions.ts    # sky pulses/flares/washes on engine events
         │   └── skyMath.test.ts
         ├── inputs/
         │   ├── useTimeOfDay.ts       # accepts a UTC-offset override for a picked location
@@ -239,6 +244,8 @@ ambient-weather-engine/
         └── components/
             ├── SkyScene.tsx          # full-viewport animated background
             ├── NowPlayingTray.tsx    # primary glass panel: time, meta, transport
+            ├── ImmersiveOverlay.tsx  # immersive view: large chord/key over the sky
+            ├── HorizonBand.tsx       # immersive visualizer: aurora band on the horizon
             ├── ControlPanel.tsx      # Studio drawer: session (focus, sleep), simulate sliders, mixer, presets
             ├── LocationPicker.tsx    # city search, inside the Studio drawer
             ├── StatusPanel.tsx       # compact input/parameter readout, inside the drawer

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSnowing, isThunderstorm } from './weatherCode';
+import { isSnowing, isThunderstorm, isFoggy } from './weatherCode';
 
 describe('isSnowing', () => {
   it('recognizes snow fall and snow shower codes', () => {
@@ -34,5 +34,14 @@ describe('isThunderstorm', () => {
 
   it('treats an unknown weather code as not a thunderstorm', () => {
     expect(isThunderstorm(undefined)).toBe(false);
+  });
+});
+
+describe('isFoggy', () => {
+  it('recognizes the WMO fog codes only', () => {
+    expect(isFoggy(45)).toBe(true);
+    expect(isFoggy(48)).toBe(true);
+    expect(isFoggy(3)).toBe(false);
+    expect(isFoggy(undefined)).toBe(false);
   });
 });

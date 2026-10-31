@@ -8,6 +8,7 @@
 
 const SNOW_CODES = new Set([71, 73, 75, 77, 85, 86]);
 const THUNDERSTORM_CODES = new Set([95, 96, 99]);
+const FOG_CODES = new Set([45, 48]);
 
 export function isSnowing(weatherCode: number | undefined): boolean {
   return weatherCode !== undefined && SNOW_CODES.has(weatherCode);
@@ -15,4 +16,8 @@ export function isSnowing(weatherCode: number | undefined): boolean {
 
 export function isThunderstorm(weatherCode: number | undefined): boolean {
   return weatherCode !== undefined && THUNDERSTORM_CODES.has(weatherCode);
+}
+
+export function isFoggy(weatherCode: number | undefined): boolean {
+  return weatherCode !== undefined && FOG_CODES.has(weatherCode);
 }

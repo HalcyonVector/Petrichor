@@ -51,3 +51,11 @@ export function IconDownload() {
     </svg>
   );
 }
+
+export function IconExpand() {
+  return (
+    <svg {...BASE}>
+      <path d="M2.8 6V2.8H6M10 2.8h3.2V6M13.2 10v3.2H10M6 13.2H2.8V10" />
+    </svg>
+  );
+}

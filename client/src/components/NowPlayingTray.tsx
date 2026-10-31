@@ -4,7 +4,7 @@ import type { AmbientParams, WeatherSnapshot } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { weatherLabel } from '../lib/weatherLabel';
 import { Visualizer } from './Visualizer';
-import { IconClose, IconDownload, IconRecord, IconSliders, IconStopRecord } from './trayIcons';
+import { IconClose, IconDownload, IconExpand, IconRecord, IconSliders, IconStopRecord } from './trayIcons';
 import { keyName } from '../audio/musicTheory';
 
 interface NowPlayingTrayProps {
@@ -36,13 +36,15 @@ interface NowPlayingTrayProps {
   drawerOpen: boolean;
   onToggleDrawer: () => void;
   drawerToggleRef?: Ref<HTMLButtonElement>;
+  onEnterImmersive: () => void;
+  immersiveToggleRef?: Ref<HTMLButtonElement>;
 }
 
 export function NowPlayingTray({
   hour, weather, weatherOffline, place, chord, keyCue, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
   volume, onVolumeChange,
   isRecording, recordingUrl, recordingError, onStartRecording, onStopRecording,
-  drawerOpen, onToggleDrawer, drawerToggleRef,
+  drawerOpen, onToggleDrawer, drawerToggleRef, onEnterImmersive, immersiveToggleRef,
 }: NowPlayingTrayProps) {
   const before = [weatherLabel(weather, weatherOffline), weather ? `${Math.round(weather.temperatureC)}°C` : null];
   const keyLabel = `${keyName(params.rootNote)} ${params.scaleMode.toUpperCase()}`;
@@ -121,6 +123,16 @@ export function NowPlayingTray({
             <IconDownload />
           </a>
         )}
+
+        <button
+          ref={immersiveToggleRef}
+          className="tray-pill tray-pill--icon"
+          onClick={onEnterImmersive}
+          aria-label="Immersive view"
+          title="Immersive view: just the sky and the music"
+        >
+          <IconExpand />
+        </button>
 
         <button
           ref={drawerToggleRef}
