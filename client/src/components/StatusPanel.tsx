@@ -1,5 +1,6 @@
 import type { AmbientParams, LiveInputs } from '../types';
 import { formatClock } from '../lib/formatTime';
+import { keyName } from '../audio/musicTheory';
 
 interface StatusPanelProps {
   inputs: LiveInputs;
@@ -37,7 +38,7 @@ export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
           <dt>Tempo</dt>
           <dd>{fmt(params.tempo, 0)} BPM</dd>
           <dt>Scale</dt>
-          <dd>{params.scaleMode} (root {params.rootNote}, octave {params.octaveShift >= 0 ? '+' : ''}{params.octaveShift})</dd>
+          <dd>{keyName(params.rootNote)} {params.scaleMode} (octave {params.octaveShift >= 0 ? '+' : ''}{params.octaveShift})</dd>
           <dt>Brightness</dt>
           <dd>{fmt(params.brightness * 100, 0)}%</dd>
           <dt>Pad voices</dt>
@@ -46,6 +47,8 @@ export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
           <dd>{fmt(params.arpDensity * 100, 0)}%</dd>
           <dt>Hihat density</dt>
           <dd>{fmt(params.hihatDensity * 100, 0)}%</dd>
+          <dt>Drum groove</dt>
+          <dd>{params.drumDensity === undefined ? 'default' : `${fmt(params.drumDensity * 100, 0)}%`}</dd>
           <dt>Rain layer</dt>
           <dd>{fmt(params.rainAmount * 100, 0)}%</dd>
           <dt>Wind modulation</dt>

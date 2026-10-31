@@ -69,3 +69,31 @@ describe('mapInputsToParams', () => {
     }
   });
 });
+
+describe('daily key', () => {
+  it('defaults to C3 when no day is given', () => {
+    expect(mapInputsToParams(inputs()).rootNote).toBe(48);
+  });
+
+  it('changes key from one day to the next', () => {
+    const today = mapInputsToParams(inputs({ dayOfYear: 100 }));
+    const tomorrow = mapInputsToParams(inputs({ dayOfYear: 101 }));
+    expect(today.rootNote).not.toBe(tomorrow.rootNote);
+  });
+});
+
+describe('drum groove density', () => {
+  it('is busier in the afternoon than at 3am', () => {
+    const day = mapInputsToParams(inputs({ hour: 14 }));
+    const night = mapInputsToParams(inputs({ hour: 3 }));
+    expect(day.drumDensity!).toBeGreaterThan(night.drumDensity!);
+  });
+
+  it('fills out with activity and stays within 0..1', () => {
+    const idle = mapInputsToParams(inputs({ activity: { activity: 0, typingRate: 0, idle: true } }));
+    const busy = mapInputsToParams(inputs({ activity: { activity: 1, typingRate: 1, idle: false } }));
+    expect(busy.drumDensity!).toBeGreaterThan(idle.drumDensity!);
+    expect(busy.drumDensity!).toBeLessThanOrEqual(1);
+    expect(idle.drumDensity!).toBeGreaterThanOrEqual(0);
+  });
+});

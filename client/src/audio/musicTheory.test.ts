@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildChord, midiToNoteName, pickWeighted, randomWalkDegree, scaleDegreeToMidi } from './musicTheory';
+import { buildChord, keyName, keyRootForDay, midiToNoteName, nextChordDegree, pickWeighted, randomWalkDegree, scaleDegreeToMidi } from './musicTheory';
 
 describe('scaleDegreeToMidi', () => {
   it('degree 0 is the root', () => {
@@ -59,5 +59,61 @@ describe('pickWeighted', () => {
     for (let i = 0; i < 20; i++) {
       expect(pickWeighted(['a', 'b', 'c'], [0, 1, 0])).toBe('b');
     }
+  });
+});
+
+describe('nextChordDegree', () => {
+  it('always moves to a different, in-range chord', () => {
+    for (let degree = 0; degree < 7; degree++) {
+      for (let i = 0; i < 50; i++) {
+        const next = nextChordDegree(degree);
+        expect(next).not.toBe(degree);
+        expect(next).toBeGreaterThanOrEqual(0);
+        expect(next).toBeLessThanOrEqual(6);
+      }
+    }
+  });
+
+  it('resolves V to I most of the time', () => {
+    let toTonic = 0;
+    const runs = 2000;
+    for (let i = 0; i < runs; i++) if (nextChordDegree(4) === 0) toTonic++;
+    expect(toTonic / runs).toBeGreaterThan(0.45);
+  });
+
+  it('is deterministic for a given random source', () => {
+    expect(nextChordDegree(4, () => 0)).toBe(0);
+    expect(nextChordDegree(4, () => 0.999)).toBe(3);
+  });
+
+  it('only uses I, IV and vi in focus mode, even from other chords', () => {
+    for (const start of [0, 1, 2, 3, 4, 5, 6]) {
+      for (let i = 0; i < 50; i++) {
+        expect([0, 3, 5]).toContain(nextChordDegree(start, Math.random, true));
+      }
+    }
+  });
+});
+
+describe('keyRootForDay', () => {
+  it('starts on C3 and steps around the circle of fifths', () => {
+    expect(keyName(keyRootForDay(0))).toBe('C');
+    expect(keyName(keyRootForDay(1))).toBe('G');
+    expect(keyName(keyRootForDay(2))).toBe('D');
+    expect(keyRootForDay(0)).toBe(48);
+  });
+
+  it('visits all 12 keys over 12 days, within A2..G#3', () => {
+    const roots = Array.from({ length: 12 }, (_, d) => keyRootForDay(d));
+    expect(new Set(roots.map((r) => r % 12)).size).toBe(12);
+    roots.forEach((r) => {
+      expect(r).toBeGreaterThanOrEqual(45);
+      expect(r).toBeLessThanOrEqual(56);
+    });
+    expect(keyRootForDay(12)).toBe(keyRootForDay(0));
+  });
+
+  it('falls back to C for non-finite input', () => {
+    expect(keyRootForDay(Number.NaN)).toBe(48);
   });
 });

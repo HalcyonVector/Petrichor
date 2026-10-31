@@ -3,6 +3,7 @@ import type { MixLayer } from '../audio/AudioEngine';
 import type { Preset } from '../types';
 import type { PresetSource } from '../lib/presetsStore';
 import { LocationPicker } from './LocationPicker';
+import { SLEEP_TIMER_OPTIONS, formatCountdown } from '../lib/sleepTimer';
 
 export interface SimState {
   hour: number;
@@ -27,6 +28,7 @@ const MIX_LAYERS: { key: MixLayer; label: string }[] = [
   { key: 'bass', label: 'Bass' },
   { key: 'arp', label: 'Arp' },
   { key: 'hihat', label: 'Hihat' },
+  { key: 'drums', label: 'Drums' },
   { key: 'rain', label: 'Rain' },
 ];
 
@@ -51,6 +53,14 @@ interface ControlPanelProps {
   locationLabel: string | null;
   onSelectLocation: (lat: number, lon: number, label: string) => void;
   onClearLocation: () => void;
+  started: boolean;
+  focus: boolean;
+  onFocusChange: (focus: boolean) => void;
+  sleepEndsAt: number | null;
+  sleepMinutes: number | null;
+  sleepRemainingMs: number;
+  fading: boolean;
+  onSetSleep: (minutes: number | null) => void;
 }
 
 function fillVar(value: number, min: number, max: number): CSSProperties {
@@ -120,9 +130,67 @@ export function ControlPanel({
   manualActive, onClearManual,
   onCopyShareLink, linkCopied,
   locationLabel, onSelectLocation, onClearLocation,
+  started, focus, onFocusChange, sleepEndsAt, sleepMinutes, sleepRemainingMs, fading, onSetSleep,
 }: ControlPanelProps) {
+  const segClass = (active: boolean) => (active ? 'segmented-btn segmented-btn--active' : 'segmented-btn');
   return (
     <div className="control-panel">
+      <div className="hud-card">
+        <h3>Session</h3>
+        <div className="session-row">
+          <span className="session-label" id="focus-label">Focus mode</span>
+          <div className="segmented" role="group" aria-labelledby="focus-label">
+            <button type="button" className={segClass(!focus)} aria-pressed={!focus} onClick={() => onFocusChange(false)}>
+              Off
+            </button>
+            <button type="button" className={segClass(focus)} aria-pressed={focus} onClick={() => onFocusChange(true)}>
+              On
+            </button>
+          </div>
+          <p className="session-hint">
+            Calmer chords, a quiet arp that ignores your typing, soft drums and no thunder. Still follows the
+            weather and time.
+          </p>
+        </div>
+
+        <div className="session-row">
+          <span className="session-label" id="sleep-label">Sleep timer</span>
+          <div className="segmented sleep-options" role="group" aria-labelledby="sleep-label">
+            <button
+              type="button"
+              className={segClass(sleepEndsAt === null && !fading)}
+              aria-pressed={sleepEndsAt === null && !fading}
+              disabled={!started || fading}
+              onClick={() => onSetSleep(null)}
+            >
+              Off
+            </button>
+            {SLEEP_TIMER_OPTIONS.map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                className={segClass(sleepMinutes === minutes)}
+                aria-pressed={sleepMinutes === minutes}
+                disabled={!started || fading}
+                aria-label={`Sleep in ${minutes} minutes`}
+                onClick={() => onSetSleep(minutes)}
+              >
+                {minutes}m
+              </button>
+            ))}
+          </div>
+          <p className="session-hint" aria-live="polite">
+            {fading
+              ? 'Fading out…'
+              : sleepEndsAt !== null
+                ? `Fades out and stops in ${formatCountdown(sleepRemainingMs)}.`
+                : started
+                  ? 'Fades the music out gently over the last 30 seconds, then stops.'
+                  : 'Start playback to set a timer.'}
+          </p>
+        </div>
+      </div>
+
       <div className="hud-card">
         <h3>Source</h3>
         <div className="segmented">

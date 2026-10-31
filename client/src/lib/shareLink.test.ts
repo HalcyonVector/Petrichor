@@ -18,6 +18,17 @@ const PARAMS: AmbientParams = {
 };
 
 describe('encodeShareParams / decodeShareParams', () => {
+  it('round-trips the optional drumDensity, and accepts older links without it', () => {
+    const withDrums = { ...PARAMS, drumDensity: 0.4 };
+    expect(decodeShareParams(encodeShareParams(withDrums))).toEqual(withDrums);
+    expect(decodeShareParams(encodeShareParams(PARAMS))).toEqual(PARAMS);
+  });
+
+  it('rejects a non-numeric drumDensity', () => {
+    const bad = encodeURIComponent(btoa(JSON.stringify({ ...PARAMS, drumDensity: 'loud' })));
+    expect(decodeShareParams(bad)).toBeNull();
+  });
+
   it('round-trips a full AmbientParams object', () => {
     const encoded = encodeShareParams(PARAMS);
     expect(decodeShareParams(encoded)).toEqual(PARAMS);

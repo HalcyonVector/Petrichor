@@ -1,5 +1,6 @@
 import type { AmbientParams, LiveInputs, ScaleName } from '../types';
 import { rainIntensity } from '../lib/weatherIntensity';
+import { keyRootForDay } from '../audio/musicTheory';
 
 function clamp(v: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, v));
@@ -39,7 +40,7 @@ const FALLBACK_WEATHER = {
  * makes the mapping easy to reason about (and to simulate in the UI).
  */
 export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
-  const { hour, weather, activity } = inputs;
+  const { hour, weather, activity, dayOfYear } = inputs;
   const night = nightness(hour);
 
   const temperatureC = weather?.temperatureC ?? FALLBACK_WEATHER.temperatureC;
@@ -60,6 +61,11 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   const rainAmount = rainIntensity(precipitationMm);
   const hihatDensity = clamp(0.03 + rainAmount * 0.42 + activity.activity * 0.06);
 
+  // The groove sits back at night and when you're idle, and fills out during
+  // the day and while you're busy. Heavy rain softens it a little so the
+  // rain texture can come forward.
+  const drumDensity = clamp(0.1 + (1 - night) * 0.35 + activity.activity * 0.25 - rainAmount * 0.1);
+
   const windModulation = clamp(windSpeedKmh / 40);
 
   const arpDensity = clamp(0.06 + activity.activity * 0.55 + activity.typingRate * 0.25);
@@ -69,12 +75,13 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   return {
     tempo,
     scaleMode: pickScaleMode(hour, night),
-    rootNote: 48,
+    rootNote: dayOfYear === undefined ? 48 : keyRootForDay(dayOfYear),
     octaveShift,
     brightness,
     padVoices,
     arpDensity,
     hihatDensity,
+    drumDensity,
     rainAmount,
     windModulation,
     warmth,

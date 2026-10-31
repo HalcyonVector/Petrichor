@@ -4,12 +4,14 @@ export type ScaleName = 'lydian' | 'major' | 'mixolydian' | 'dorian' | 'minor' |
 export interface AmbientParams {
   tempo: number; // BPM driving Tone.Transport
   scaleMode: ScaleName;
-  rootNote: number; // MIDI note number, e.g. 48 = C3
+  rootNote: number; // MIDI note number of the key, e.g. 48 = C3; changes daily
   octaveShift: number; // -2..2, register shift for the whole mix
   brightness: number; // 0..1, drives lowpass filter cutoff
   padVoices: number; // 3..6, chord size / detuned voice count
   arpDensity: number; // 0..1, probability of an arp note per 8th
   hihatDensity: number; // 0..1, probability of a hihat hit per 16th
+  /** 0..1, how busy the lo-fi kick/rim groove is. Optional: presets and share links saved before it existed play a soft default groove. */
+  drumDensity?: number;
   rainAmount: number; // 0..1, filtered noise "rain" layer level
   windModulation: number; // 0..1, LFO rate/depth on the filter + panning
   warmth: number; // 0..1, detune/saturation amount, lower = colder/sparser
@@ -42,6 +44,8 @@ export interface LiveInputs {
   hour: number; // 0..24, local time as a float
   weather: WeatherSnapshot | null;
   activity: ActivitySnapshot;
+  /** 0 = 1 January. Picks the day's key; omitted means C. */
+  dayOfYear?: number;
 }
 
 export interface Preset {

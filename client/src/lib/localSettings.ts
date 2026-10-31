@@ -4,7 +4,7 @@ const VOLUME_KEY = 'ambient-weather-engine:volume';
 const MIX_KEY = 'ambient-weather-engine:mix';
 const LOCATION_KEY = 'ambient-weather-engine:location';
 const ONBOARDED_KEY = 'ambient-weather-engine:onboarded';
-const MIX_LAYERS: MixLayer[] = ['pad', 'bass', 'arp', 'hihat', 'rain'];
+const MIX_LAYERS: MixLayer[] = ['pad', 'bass', 'arp', 'hihat', 'drums', 'rain'];
 
 export interface StoredLocation {
   lat: number;
@@ -39,8 +39,15 @@ export function loadStoredMix(fallback: Record<MixLayer, number>): Record<MixLay
     const raw = localStorage.getItem(MIX_KEY);
     if (raw === null) return fallback;
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const valid = MIX_LAYERS.every((layer) => typeof parsed[layer] === 'number' && Number.isFinite(parsed[layer]));
-    return valid ? (parsed as Record<MixLayer, number>) : fallback;
+    if (!parsed || typeof parsed !== 'object') return fallback;
+    // Layer by layer, so a mix saved before a layer existed keeps its other
+    // levels and the new layer just starts at its default.
+    const merged = { ...fallback };
+    MIX_LAYERS.forEach((layer) => {
+      const value = parsed[layer];
+      if (typeof value === 'number' && Number.isFinite(value)) merged[layer] = value;
+    });
+    return merged;
   } catch {
     return fallback;
   }
@@ -91,5 +98,23 @@ export function markOnboardingSeen(): void {
     localStorage.setItem(ONBOARDED_KEY, 'true');
   } catch {
     // quota exceeded or storage disabled; the hint just reappears next visit
+  }
+}
+
+const FOCUS_KEY = 'ambient-weather-engine:focus';
+
+export function loadStoredFocus(): boolean {
+  try {
+    return localStorage.getItem(FOCUS_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function saveStoredFocus(focus: boolean): void {
+  try {
+    localStorage.setItem(FOCUS_KEY, String(focus));
+  } catch {
+    // quota exceeded or storage disabled; focus mode just resets next visit
   }
 }
