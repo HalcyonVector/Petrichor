@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { drumHitsForStep } from './drumPattern';
 import { buildChord, midiToNoteName, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
 import type { ScaleName } from '../types';
 import type { AmbientParams } from '../types';
@@ -12,22 +13,30 @@ const DEFAULT_PARAMS: AmbientParams = {
   padVoices: 3,
   arpDensity: 0.3,
   hihatDensity: 0.1,
+  drumDensity: 0.3,
   rainAmount: 0,
   windModulation: 0.2,
   warmth: 0.5,
   reverbWet: 0.4,
 };
 
-export type MixLayer = 'pad' | 'bass' | 'arp' | 'hihat' | 'rain';
+export type MixLayer = 'pad' | 'bass' | 'arp' | 'hihat' | 'drums' | 'rain';
+
+/** Used for presets and share links saved before the drum layer existed. */
+const FALLBACK_DRUM_DENSITY = 0.3;
+/** Lo-fi lilt on the 16ths. Shared by the drums and the hi-hat. */
+const SWING = 0.18;
 
 // Base levels each layer sits at when its mix control is at 1 (100%) — the
 // same balance the engine has always used, now expressed as a starting
 // point the per-layer mixer multiplies against.
-const BASE_DB: Record<'pad' | 'bass' | 'arp' | 'hihat', number> = {
+const BASE_DB: Record<'pad' | 'bass' | 'arp' | 'hihat' | 'kick' | 'rim', number> = {
   pad: -12,
   bass: -15,
   arp: -18,
   hihat: -24,
+  kick: -13,
+  rim: -21,
 };
 const RAIN_BASE_GAIN = 0.18;
 
@@ -48,7 +57,7 @@ export class AudioEngine {
   // the middle of a phrase and the arp always agrees with the pad.
   private harmonyScale: ScaleName = DEFAULT_PARAMS.scaleMode;
   private harmonyRoot = DEFAULT_PARAMS.rootNote + DEFAULT_PARAMS.octaveShift * 12;
-  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, rain: 1 };
+  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
 
   private master!: Tone.Gain;
   private analyser!: Tone.Analyser;
@@ -62,6 +71,10 @@ export class AudioEngine {
   private bassSynth!: Tone.MonoSynth;
   private arpSynth!: Tone.PluckSynth;
   private hihat!: Tone.NoiseSynth;
+  private kick!: Tone.MembraneSynth;
+  private kickFilter!: Tone.Filter;
+  private rim!: Tone.NoiseSynth;
+  private rimFilter!: Tone.Filter;
   private rainNoise!: Tone.Noise;
   private rainFilter!: Tone.Filter;
   private rainGain!: Tone.Gain;
@@ -71,6 +84,7 @@ export class AudioEngine {
   private padLoop?: Tone.Loop;
   private arpLoop?: Tone.Loop;
   private hihatLoop?: Tone.Loop;
+  private drumLoop?: Tone.Loop;
 
   private recordingDestination?: MediaStreamAudioDestinationNode;
 
@@ -121,6 +135,28 @@ export class AudioEngine {
     });
     this.hihat.connect(this.master);
 
+    // Lo-fi drums: a soft, round kick with its top end rolled off, and a short
+    // band-passed noise click standing in for a rim shot. Both are pure
+    // synthesis like everything else.
+    this.kickFilter = new Tone.Filter({ frequency: 700, type: 'lowpass', rolloff: -24 });
+    this.kickFilter.connect(this.master);
+    this.kick = new Tone.MembraneSynth({
+      pitchDecay: 0.04,
+      octaves: 5,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.002, decay: 0.38, sustain: 0, release: 0.1 },
+    });
+    this.kick.connect(this.kickFilter);
+
+    this.rimFilter = new Tone.Filter({ frequency: 1900, type: 'bandpass', Q: 2.5 });
+    this.rimFilter.connect(this.master);
+    this.rimFilter.connect(this.reverb);
+    this.rim = new Tone.NoiseSynth({
+      noise: { type: 'white' },
+      envelope: { attack: 0.001, decay: 0.045, sustain: 0, release: 0.02 },
+    });
+    this.rim.connect(this.rimFilter);
+
     this.rainFilter = new Tone.Filter({ frequency: 2200, type: 'bandpass', Q: 0.6 });
     this.rainGain = new Tone.Gain(0).connect(this.master);
     this.rainFilter.connect(this.rainGain);
@@ -137,11 +173,14 @@ export class AudioEngine {
     this.thunderSynth.connect(this.thunderFilter);
 
     Tone.Transport.bpm.value = this.params.tempo;
+    Tone.Transport.swingSubdivision = '16n';
+    Tone.Transport.swing = SWING;
 
     this.applyPadVolume();
     this.applyBassVolume();
     this.applyArpVolume();
     this.applyHihatVolume();
+    this.applyDrumVolume();
     this.applyRainGain();
   }
 
@@ -160,7 +199,8 @@ export class AudioEngine {
     this.padLoop?.dispose();
     this.arpLoop?.dispose();
     this.hihatLoop?.dispose();
-    this.padLoop = this.arpLoop = this.hihatLoop = undefined;
+    this.drumLoop?.dispose();
+    this.padLoop = this.arpLoop = this.hihatLoop = this.drumLoop = undefined;
     this.started = false;
   }
 
@@ -199,6 +239,9 @@ export class AudioEngine {
         break;
       case 'hihat':
         this.applyHihatVolume();
+        break;
+      case 'drums':
+        this.applyDrumVolume();
         break;
       case 'rain':
         this.applyRainGain();
@@ -281,6 +324,12 @@ export class AudioEngine {
     this.hihat.volume.rampTo(BASE_DB.hihat + densityDb + this.mixToDb(this.mixLevels.hihat), 1);
   }
 
+  private applyDrumVolume() {
+    const mixDb = this.mixToDb(this.mixLevels.drums);
+    this.kick.volume.rampTo(BASE_DB.kick + mixDb, 0.2);
+    this.rim.volume.rampTo(BASE_DB.rim + mixDb, 0.2);
+  }
+
   private applyRainGain() {
     this.rainGain.gain.rampTo(this.params.rainAmount * RAIN_BASE_GAIN * this.mixLevels.rain, 2);
   }
@@ -333,6 +382,16 @@ export class AudioEngine {
         this.hihat.triggerAttackRelease('16n', time);
       }
     }, '16n').start(0);
+
+    // Step position comes from the transport itself, so the pattern stays
+    // locked to the bar line however the tempo ramps.
+    const ticksPer16th = Tone.Transport.PPQ / 4;
+    this.drumLoop = new Tone.Loop((time) => {
+      const step = Math.round(Tone.Transport.getTicksAtTime(time) / ticksPer16th) % 16;
+      const { kick, rim } = drumHitsForStep(step, this.params.drumDensity ?? FALLBACK_DRUM_DENSITY);
+      if (kick > 0) this.kick.triggerAttackRelease('F1', '8n', time, kick);
+      if (rim > 0) this.rim.triggerAttackRelease('32n', time, rim);
+    }, '16n').start(0);
   }
 
   dispose() {
@@ -344,7 +403,8 @@ export class AudioEngine {
     }
     [
       this.master, this.analyser, this.reverb, this.padFilter, this.filterLfo, this.panLfo, this.panner,
-      this.padSynth, this.bassSynth, this.arpSynth, this.hihat, this.rainNoise, this.rainFilter, this.rainGain,
+      this.padSynth, this.bassSynth, this.arpSynth, this.hihat, this.kick, this.kickFilter, this.rim, this.rimFilter,
+      this.rainNoise, this.rainFilter, this.rainGain,
       this.thunderSynth, this.thunderFilter,
     ].forEach((node) => node?.dispose());
     this.built = false;

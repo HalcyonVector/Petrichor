@@ -7,7 +7,7 @@ import {
 } from './localSettings';
 import type { MixLayer } from '../audio/AudioEngine';
 
-const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, rain: 1 };
+const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
 
 beforeEach(() => {
   localStorage.clear();
@@ -40,14 +40,17 @@ describe('mix persistence', () => {
   });
 
   it('round-trips a saved mix', () => {
-    const custom: Record<MixLayer, number> = { pad: 0.5, bass: 1.2, arp: 0, hihat: 0.8, rain: 1.5 };
+    const custom: Record<MixLayer, number> = { pad: 0.5, bass: 1.2, arp: 0, hihat: 0.8, drums: 0.6, rain: 1.5 };
     saveStoredMix(custom);
     expect(loadStoredMix(DEFAULT_MIX)).toEqual(custom);
   });
 
-  it('falls back when a layer is missing', () => {
-    localStorage.setItem('ambient-weather-engine:mix', JSON.stringify({ pad: 1, bass: 1 }));
-    expect(loadStoredMix(DEFAULT_MIX)).toEqual(DEFAULT_MIX);
+  it('keeps saved layers and defaults any missing ones (e.g. a mix saved before drums existed)', () => {
+    localStorage.setItem(
+      'ambient-weather-engine:mix',
+      JSON.stringify({ pad: 0.4, bass: 1, arp: 1, hihat: 1, rain: 0.2, junk: 'x' }),
+    );
+    expect(loadStoredMix(DEFAULT_MIX)).toEqual({ ...DEFAULT_MIX, pad: 0.4, rain: 0.2 });
   });
 
   it('falls back on garbage stored data', () => {

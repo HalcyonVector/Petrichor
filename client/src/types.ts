@@ -10,6 +10,8 @@ export interface AmbientParams {
   padVoices: number; // 3..6, chord size / detuned voice count
   arpDensity: number; // 0..1, probability of an arp note per 8th
   hihatDensity: number; // 0..1, probability of a hihat hit per 16th
+  /** 0..1, how busy the lo-fi kick/rim groove is. Optional: presets and share links saved before it existed play a soft default groove. */
+  drumDensity?: number;
   rainAmount: number; // 0..1, filtered noise "rain" layer level
   windModulation: number; // 0..1, LFO rate/depth on the filter + panning
   warmth: number; // 0..1, detune/saturation amount, lower = colder/sparser

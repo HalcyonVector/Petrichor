@@ -61,6 +61,11 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   const rainAmount = rainIntensity(precipitationMm);
   const hihatDensity = clamp(0.03 + rainAmount * 0.42 + activity.activity * 0.06);
 
+  // The groove sits back at night and when you're idle, and fills out during
+  // the day and while you're busy. Heavy rain softens it a little so the
+  // rain texture can come forward.
+  const drumDensity = clamp(0.1 + (1 - night) * 0.35 + activity.activity * 0.25 - rainAmount * 0.1);
+
   const windModulation = clamp(windSpeedKmh / 40);
 
   const arpDensity = clamp(0.06 + activity.activity * 0.55 + activity.typingRate * 0.25);
@@ -76,6 +81,7 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
     padVoices,
     arpDensity,
     hihatDensity,
+    drumDensity,
     rainAmount,
     windModulation,
     warmth,
