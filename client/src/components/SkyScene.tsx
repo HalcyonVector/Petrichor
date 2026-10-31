@@ -1,5 +1,6 @@
 import { useMemo, useRef, type CSSProperties } from 'react';
 import { useSkyReactions, type EngineSubscribe } from '../sky/useSkyReactions';
+import { auroraAmount, fogAmount, rippleCount } from '../sky/sceneMath';
 import { nightness } from '../mapping/parameterMapping';
 import { rainIntensity } from '../lib/weatherIntensity';
 import { isSnowing } from '../lib/weatherCode';
@@ -130,6 +131,9 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: Sky
   const duskGlow = horizonGlowIntensity(body, pos.arc);
 
   const snowing = isSnowing(weather?.weatherCode);
+  const fog = fogAmount(cloudCoverPct, weather?.weatherCode);
+  const aurora = auroraAmount(night, cloudCoverPct, precipitationMm);
+  const ripplesWanted = rippleCount(precipitationMm, snowing);
   const precipCount = precipitationMm > 0.05 ? Math.round((8 + rain * 34) / 5) * 5 : 0;
   const dropCount = snowing ? 0 : precipCount;
   const flakeCount = snowing ? precipCount : 0;
@@ -156,6 +160,18 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: Sky
     [flakeCount],
   );
 
+  const ripples = useMemo(
+    () =>
+      Array.from({ length: ripplesWanted }, () => ({
+        left: 3 + Math.random() * 94,
+        bottom: 0.4 + Math.random() * 4.5,
+        size: 18 + Math.random() * 34,
+        duration: 1.6 + Math.random() * 1.2,
+        delay: -Math.random() * 3,
+      })),
+    [ripplesWanted],
+  );
+
   return (
     <div
       className="sky-scene"
@@ -177,6 +193,14 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: Sky
           />
         ))}
       </div>
+
+      {aurora > 0.02 && (
+        <div className="sky-aurora" style={{ opacity: aurora }}>
+          <span className="sky-aurora-band sky-aurora-band--1" />
+          <span className="sky-aurora-band sky-aurora-band--2" />
+          <span className="sky-aurora-band sky-aurora-band--3" />
+        </div>
+      )}
 
       {clouds.map((c, i) => (
         <div
@@ -263,7 +287,38 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: Sky
         <polygon points={horizonPolygonPoints(horizonHeights)} />
       </svg>
 
+      {ripples.length > 0 && (
+        <div className="sky-wet">
+          <div
+            className="sky-reflection"
+            style={{ left: `${pos.xPct}%`, opacity: (body === 'sun' ? 0.35 : 0.28) * (0.4 + pos.glow * 0.6) }}
+          />
+          {ripples.map((r, i) => (
+            <span
+              key={i}
+              className="sky-ripple"
+              style={{
+                left: `${r.left}%`,
+                bottom: `${r.bottom}vh`,
+                width: r.size,
+                height: r.size * 0.28,
+                animationDuration: `${r.duration}s`,
+                animationDelay: `${r.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="sky-horizon-fade" />
+
+      {fog > 0.02 && (
+        <div className="sky-fog" style={{ opacity: fog }}>
+          <span className="sky-fog-bank sky-fog-bank--1" />
+          <span className="sky-fog-bank sky-fog-bank--2" />
+          <span className="sky-fog-bank sky-fog-bank--3" />
+        </div>
+      )}
 
       <div ref={particlesRef} className="sky-particles">
         {particles.map((p, i) => (

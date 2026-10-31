@@ -1249,3 +1249,142 @@ input[type="text"] {
 @media (hover: none) {
   .tray-hint { display: none; }
 }
+
+/* ============ Weather scenes: aurora, fog, rain ripples (sky/sceneMath.ts) ============ */
+
+.sky-aurora {
+  position: absolute;
+  inset: 0 0 40% 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  transition: opacity 6s ease;
+}
+
+.sky-aurora-band {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  height: 30vh;
+  border-radius: 50%;
+  filter: blur(7px);
+  transform-origin: 50% 100%;
+  /* Vertical rays, fading out toward both ends: reads as hanging curtains of
+     light rather than a flat stripe. */
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%),
+    repeating-linear-gradient(90deg, #000 0 2px, rgba(0, 0, 0, 0.35) 2px 7px, #000 7px 9px, rgba(0, 0, 0, 0.55) 9px 16px);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent 0%, #000 18%, #000 82%, transparent 100%),
+    repeating-linear-gradient(90deg, #000 0 2px, rgba(0, 0, 0, 0.35) 2px 7px, #000 7px 9px, rgba(0, 0, 0, 0.55) 9px 16px);
+  mask-composite: intersect;
+  animation: aurora-sway 18s ease-in-out infinite alternate;
+}
+
+.sky-aurora-band--1 {
+  top: 4vh;
+  rotate: -5deg;
+  background: linear-gradient(180deg, transparent, rgba(80, 255, 190, 0.18) 30%, rgba(80, 255, 190, 0.6) 78%, transparent);
+}
+
+.sky-aurora-band--2 {
+  top: 14vh;
+  left: 10%;
+  width: 90%;
+  rotate: 4deg;
+  background: linear-gradient(180deg, transparent, rgba(120, 190, 255, 0.35) 45%, rgba(190, 120, 255, 0.4) 80%, transparent);
+  animation-duration: 24s;
+  animation-delay: -8s;
+}
+
+.sky-aurora-band--3 {
+  top: 0;
+  left: -25%;
+  width: 80%;
+  height: 22vh;
+  rotate: 8deg;
+  background: linear-gradient(180deg, transparent, rgba(160, 255, 140, 0.3) 60%, transparent);
+  animation-duration: 30s;
+  animation-delay: -15s;
+}
+
+@keyframes aurora-sway {
+  0% { transform: translateX(-4%) skewX(-8deg) scaleY(0.9); opacity: 0.65; }
+  50% { transform: translateX(3%) skewX(6deg) scaleY(1.12); opacity: 1; }
+  100% { transform: translateX(-2%) skewX(-3deg) scaleY(0.95); opacity: 0.75; }
+}
+
+.sky-fog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48vh;
+  pointer-events: none;
+  transition: opacity 6s ease;
+}
+
+.sky-fog-bank {
+  position: absolute;
+  left: -30%;
+  width: 160%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(205, 212, 226, 0.55), rgba(205, 212, 226, 0) 68%);
+  filter: blur(14px);
+  animation: fog-drift 70s ease-in-out infinite alternate;
+}
+
+.sky-fog-bank--1 { bottom: 2vh; height: 22vh; }
+.sky-fog-bank--2 { bottom: 12vh; height: 18vh; opacity: 0.7; animation-duration: 95s; animation-delay: -30s; }
+.sky-fog-bank--3 { bottom: -4vh; height: 26vh; opacity: 0.85; animation-duration: 120s; animation-delay: -60s; }
+
+@keyframes fog-drift {
+  from { transform: translateX(-8%); }
+  to { transform: translateX(8%); }
+}
+
+.sky-wet {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sky-reflection {
+  position: absolute;
+  bottom: 0;
+  width: 70px;
+  height: 13vh;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse 50% 60% at 50% 70%, rgba(255, 226, 170, 0.85), rgba(255, 226, 170, 0) 100%);
+  filter: blur(6px);
+  /* Soft horizontal breaks, like light broken up on wet ground. */
+  mask-image: repeating-linear-gradient(to top, #000 0 4px, rgba(0, 0, 0, 0.45) 4px 8px);
+  -webkit-mask-image: repeating-linear-gradient(to top, #000 0 4px, rgba(0, 0, 0, 0.45) 4px 8px);
+  animation: reflection-shimmer 3.2s ease-in-out infinite;
+  transition: left 4s linear, opacity 3s ease;
+}
+
+@keyframes reflection-shimmer {
+  0%, 100% { transform: translateX(-50%) scaleX(1); }
+  50% { transform: translateX(-50%) scaleX(1.25); }
+}
+
+.sky-ripple {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(200, 218, 245, 0.7);
+  transform: translateX(-50%) scale(0.2);
+  opacity: 0;
+  animation: ripple-out 2s ease-out infinite;
+}
+
+@keyframes ripple-out {
+  0% { transform: translateX(-50%) scale(0.2); opacity: 0.9; }
+  100% { transform: translateX(-50%) scale(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sky-aurora-band, .sky-fog-bank, .sky-reflection { animation: none; }
+  .sky-ripple { display: none; }
+}
