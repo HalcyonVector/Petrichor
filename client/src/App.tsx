@@ -26,7 +26,7 @@ import {
 import { SkyScene } from './components/SkyScene';
 import { NowPlayingTray } from './components/NowPlayingTray';
 import { OnboardingHint } from './components/OnboardingHint';
-import { ControlPanel, type SimState } from './components/ControlPanel';
+import { ControlPanel, type SimState, type StudioSection } from './components/ControlPanel';
 import { StatusPanel } from './components/StatusPanel';
 import type { AmbientParams, LiveInputs, Preset, WeatherSnapshot } from './types';
 import './App.css';
@@ -40,6 +40,12 @@ const DEFAULT_SIM: SimState = {
   activity: 0.3,
   weatherCode: 0,
 };
+
+const STUDIO_TABS: { key: StudioSection; label: string }[] = [
+  { key: 'sound', label: 'Sound' },
+  { key: 'source', label: 'Source' },
+  { key: 'presets', label: 'Presets' },
+];
 
 const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
 
@@ -69,6 +75,7 @@ export default function App() {
   const [focus, setFocus] = useState(() => loadStoredFocus());
   const [fading, setFading] = useState(false);
   const [chord, setChord] = useState<string | null>(null);
+  const [studioTab, setStudioTab] = useState<StudioSection>('sound');
   const [keyCue, setKeyCue] = useState(0);
 
   const subscribeEngine = useCallback(
@@ -372,51 +379,83 @@ export default function App() {
             </button>
           </div>
 
-          <ControlPanel
-            simulate={simulate}
-            onToggleSimulate={(v) => {
-              setSimulate(v);
-              setManualParams(null);
-            }}
-            sim={sim}
-            onSimChange={(patch) => setSim((prev) => ({ ...prev, ...patch }))}
-            mix={mix}
-            onMixChange={handleMixChange}
-            presets={presets}
-            presetsSource={presetsSource}
-            presetName={presetName}
-            onPresetNameChange={setPresetName}
-            onSavePreset={handleSavePreset}
-            onLoadPreset={handleLoadPreset}
-            onDeletePreset={handleDeletePreset}
-            manualActive={manualParams !== null}
-            onClearManual={() => setManualParams(null)}
-            onCopyShareLink={handleCopyShareLink}
-            linkCopied={linkCopied}
-            locationLabel={locationOverride?.label ?? null}
-            onSelectLocation={handleSelectLocation}
-            onClearLocation={handleClearLocation}
-            started={started}
-            focus={focus}
-            onFocusChange={setFocus}
-            sleepEndsAt={sleepTimer.endsAt}
-            sleepMinutes={sleepTimer.minutes}
-            sleepRemainingMs={sleepTimer.remainingMs}
-            fading={fading}
-            onSetSleep={sleepTimer.set}
-          />
+          <div className="studio-tabs" role="tablist" aria-label="Studio sections">
+            {STUDIO_TABS.map(({ key, label }, index) => (
+              <button
+                key={key}
+                id={`studio-tab-${key}`}
+                type="button"
+                role="tab"
+                aria-selected={studioTab === key}
+                aria-controls="studio-panel"
+                tabIndex={studioTab === key ? 0 : -1}
+                className={studioTab === key ? 'studio-tab studio-tab--active' : 'studio-tab'}
+                onClick={() => setStudioTab(key)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                  e.preventDefault();
+                  const next = STUDIO_TABS[(index + (e.key === 'ArrowRight' ? 1 : -1) + STUDIO_TABS.length) % STUDIO_TABS.length];
+                  setStudioTab(next.key);
+                  document.getElementById(`studio-tab-${next.key}`)?.focus();
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <StatusPanel inputs={inputs} weatherOffline={weatherStatus === 'offline'} params={playedParams} isManual={manualParams !== null} />
+          <div id="studio-panel" role="tabpanel" aria-labelledby={`studio-tab-${studioTab}`} className="studio-panel">
+            <ControlPanel
+              section={studioTab}
+              simulate={simulate}
+              onToggleSimulate={(v) => {
+                setSimulate(v);
+                setManualParams(null);
+              }}
+              sim={sim}
+              onSimChange={(patch) => setSim((prev) => ({ ...prev, ...patch }))}
+              mix={mix}
+              onMixChange={handleMixChange}
+              presets={presets}
+              presetsSource={presetsSource}
+              presetName={presetName}
+              onPresetNameChange={setPresetName}
+              onSavePreset={handleSavePreset}
+              onLoadPreset={handleLoadPreset}
+              onDeletePreset={handleDeletePreset}
+              manualActive={manualParams !== null}
+              onClearManual={() => setManualParams(null)}
+              onCopyShareLink={handleCopyShareLink}
+              linkCopied={linkCopied}
+              locationLabel={locationOverride?.label ?? null}
+              onSelectLocation={handleSelectLocation}
+              onClearLocation={handleClearLocation}
+              started={started}
+              focus={focus}
+              onFocusChange={setFocus}
+              sleepEndsAt={sleepTimer.endsAt}
+              sleepMinutes={sleepTimer.minutes}
+              sleepRemainingMs={sleepTimer.remainingMs}
+              fading={fading}
+              onSetSleep={sleepTimer.set}
+            />
 
-          <p className="drawer-footnote">
-            Synthesis engine built on Tone.js oscillators, filters, and envelopes (no samples). Weather via
-            Open-Meteo.
-          </p>
-          <p className="drawer-footnote">
-            Location: only sent to this app's own backend, never stored. If you decline browser location
-            access, the backend guesses roughly from your IP via ipapi.co instead. The "Weather" line above
-            always names the source in use (client, ip, or default).
-          </p>
+            {studioTab === 'source' && (
+              <>
+                <StatusPanel inputs={inputs} weatherOffline={weatherStatus === 'offline'} params={playedParams} isManual={manualParams !== null} />
+
+                <p className="drawer-footnote">
+                  Synthesis engine built on Tone.js oscillators, filters, and envelopes (no samples). Weather via
+                  Open-Meteo.
+                </p>
+                <p className="drawer-footnote">
+                  Location: only sent to this app's own backend, never stored. If you decline browser location
+                  access, the backend guesses roughly from your IP via ipapi.co instead. The "Weather" line above
+                  always names the source in use (client, ip, or default).
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </aside>
     </div>

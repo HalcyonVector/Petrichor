@@ -82,6 +82,7 @@ export function NowPlayingTray({
           className="tray-play"
           onClick={started ? onStop : onStart}
           aria-label={started ? 'Stop' : 'Start'}
+          title={started ? 'Stop (Space)' : 'Start (Space)'}
         >
           {started ? '■' : '▶'}
         </button>
@@ -133,6 +134,12 @@ export function NowPlayingTray({
           <span className="tray-pill-label">Studio</span>
         </button>
       </div>
+
+      {!started && (
+        <div className="tray-hint">
+          or press <kbd>Space</kbd>
+        </div>
+      )}
 
       {recordingError && <div className="tray-error">{recordingError}</div>}
     </div>
