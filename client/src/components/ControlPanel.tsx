@@ -4,6 +4,7 @@ import type { Preset } from '../types';
 import type { PresetSource } from '../lib/presetsStore';
 import { LocationPicker } from './LocationPicker';
 import { SLEEP_TIMER_OPTIONS, formatCountdown } from '../lib/sleepTimer';
+import { IconDownload, IconRecord, IconStopRecord } from './trayIcons';
 
 export interface SimState {
   hour: number;
@@ -33,7 +34,7 @@ const MIX_LAYERS: { key: MixLayer; label: string }[] = [
   { key: 'rain', label: 'Rain' },
 ];
 
-export type StudioSection = 'sound' | 'source' | 'presets';
+export type StudioSection = 'sound' | 'source' | 'presets' | 'record';
 
 interface ControlPanelProps {
   /** Which Studio tab is showing. */
@@ -66,6 +67,13 @@ interface ControlPanelProps {
   sleepRemainingMs: number;
   fading: boolean;
   onSetSleep: (minutes: number | null) => void;
+  isRecording: boolean;
+  /** Elapsed time of the running recording, e.g. "1:05". */
+  recordingElapsed: string | null;
+  recordingUrl: string | null;
+  recordingError: string | null;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
 }
 
 function fillVar(value: number, min: number, max: number): CSSProperties {
@@ -137,6 +145,7 @@ export function ControlPanel({
   onCopyShareLink, linkCopied,
   locationLabel, onSelectLocation, onClearLocation,
   started, focus, onFocusChange, sleepEndsAt, sleepMinutes, sleepRemainingMs, fading, onSetSleep,
+  isRecording, recordingElapsed, recordingUrl, recordingError, onStartRecording, onStopRecording,
 }: ControlPanelProps) {
   const segClass = (active: boolean) => (active ? 'segmented-btn segmented-btn--active' : 'segmented-btn');
   return (
@@ -334,7 +343,7 @@ export function ControlPanel({
       )}
 
       {section === 'presets' && (
-        <div className="hud-card">
+        <div className="hud-card hud-card--wide">
           <h3>
             <span>Presets</span>
             {presetsSource === 'local' && <span className="badge">offline · saved locally</span>}
@@ -389,6 +398,43 @@ export function ControlPanel({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {section === 'record' && (
+        <div className="hud-card hud-card--wide record-card">
+          <h3>Record</h3>
+          <p className="record-explainer">
+            Save what Petrichor is playing as an audio file. Recording captures everything you hear from the
+            moment you press record until you stop; then a download appears. It all stays on your device:
+            nothing is uploaded.
+          </p>
+
+          <div className="record-row">
+            <button
+              type="button"
+              className={isRecording ? 'record-btn record-btn--live' : 'record-btn'}
+              onClick={isRecording ? onStopRecording : onStartRecording}
+              disabled={!started && !isRecording}
+            >
+              {isRecording ? <IconStopRecord /> : <IconRecord />}
+              {isRecording ? 'Stop recording' : 'Start recording'}
+            </button>
+            <span className="record-status" aria-live="polite">
+              {isRecording
+                ? `Recording · ${recordingElapsed ?? '0:00'}`
+                : started
+                  ? 'Ready'
+                  : 'Start playback first'}
+            </span>
+          </div>
+
+          {recordingUrl && !isRecording && (
+            <a className="record-download" href={recordingUrl} download={`petrichor-session-${Date.now()}.webm`}>
+              <IconDownload /> Download your recording (.webm)
+            </a>
+          )}
+          {recordingError && <p className="record-error">{recordingError}</p>}
         </div>
       )}
     </div>

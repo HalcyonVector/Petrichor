@@ -59,3 +59,19 @@ export function IconExpand() {
     </svg>
   );
 }
+
+export function IconPlay() {
+  return (
+    <svg {...BASE} width={18} height={18}>
+      <path d="M5.2 3.6v8.8a.6.6 0 0 0 .92.5l6.9-4.4a.6.6 0 0 0 0-1L6.12 3.1a.6.6 0 0 0-.92.5Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconStop() {
+  return (
+    <svg {...BASE} width={16} height={16}>
+      <rect x="4" y="4" width="8" height="8" rx="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

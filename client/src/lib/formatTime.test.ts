@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatClock } from './formatTime';
+import { formatClock, formatElapsed } from './formatTime';
 
 describe('formatClock', () => {
   it('pads single-digit hours and minutes', () => {
@@ -16,5 +16,15 @@ describe('formatClock', () => {
 
   it('handles exact whole hours', () => {
     expect(formatClock(9)).toBe('09:00');
+  });
+});
+
+describe('formatElapsed', () => {
+  it('rounds down and formats minutes and hours', () => {
+    expect(formatElapsed(0)).toBe('0:00');
+    expect(formatElapsed(999)).toBe('0:00');
+    expect(formatElapsed(65_400)).toBe('1:05');
+    expect(formatElapsed(3_725_000)).toBe('1:02:05');
+    expect(formatElapsed(-50)).toBe('0:00');
   });
 });
