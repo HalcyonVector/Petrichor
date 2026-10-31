@@ -16,23 +16,31 @@ This project is for personal and educational use. It is **not a medical, therape
 
 ### Synthesis Engine (no samples)
 
-- **Pad layer**: `PolySynth` of detuned fat-sawtooth voices through an LFO-modulated lowpass filter into reverb; chord notes come from a scale-degree random walk so harmonic motion drifts smoothly instead of jumping
-- **Sub bass**: `MonoSynth` sine voice with its own filter envelope, tracking the pad's root note an octave down
+- **Pad layer**: `PolySynth` of detuned fat-sawtooth voices through an LFO-modulated lowpass filter into reverb; chords follow a weighted functional-harmony table (ii and IV lead to V, V resolves to I or deceptively to vi), so progressions build tension and resolve instead of wandering at random
+- **Sub bass**: `MonoSynth` sine voice with its own filter envelope, playing each chord's own root an octave down, so the progression is audible underneath the pad
 - **Arpeggio**: `PluckSynth`, probability-gated per 8th note by a live-driven density parameter
 - **Hi-hat**: `NoiseSynth` (white noise, fast decay), probability-gated per 16th note, density driven by rain
 - **Rain texture**: continuous pink noise through a bandpass filter, gain driven by live precipitation
 - **Wind-driven drift**: slow pan LFO and filter-cutoff LFO both modulated by live wind speed
-- **Per-layer mixer**: independent 0–150% mix controls for pad/bass/arp/hihat/rain, layered on top of (not replacing) the automatic weather/time/activity mapping
-- **Music theory core**: scale/mode selection (lydian → major → mixolydian → dorian → minor → phrygian), chord-stacking, and scale-degree random walks live in a dependency-free module (`musicTheory.ts`)
+- **Lo-fi drum groove**: a synthesized kick (`MembraneSynth`, low-passed) and rim click (band-passed noise) on a probabilistic 16-step pattern (`drumPattern.ts`). A downbeat kick anchors it; the "and of 3" kick, 2-and-4 rims and ghost notes fade in as density rises, so a quiet night is a lone heartbeat and a busy afternoon is a full groove. 16th-note swing on the transport gives drums and hi-hat a lo-fi lilt
+- **Phrase-safe harmony changes**: key and mode changes from the live inputs are held until the next chord change and land on the new tonic, so the pad and arp never disagree mid-phrase
+- **Per-layer mixer**: independent 0–150% mix controls for pad/bass/arp/hihat/drums/rain, layered on top of (not replacing) the automatic weather/time/activity mapping
+- **Music theory core**: scale/mode selection (lydian → major → mixolydian → dorian → minor → phrygian), chord-stacking, chord progressions and the daily key cycle live in a dependency-free module (`musicTheory.ts`)
 
 ### Live Inputs
 
-- **Time of day**: tempo, register (octave), and scale/mode drift from bright major/lydian at midday to slower minor/phrygian tonalities at night, on a continuous day/night curve (not hard cutoffs)
+- **Time of day**: tempo, register (octave), and scale/mode drift from bright major/lydian at midday to slower minor/phrygian tonalities at night, on a continuous day/night curve (not hard cutoffs). The key changes daily, stepping one fifth around the circle of fifths so neighbouring days sit in related keys and all 12 come round every 12 days; a picked location uses its own local date. The groove is busier by day and with activity, sparse at night
 - **Live weather** (via [Open-Meteo](https://open-meteo.com), no API key required): precipitation, cloud cover, wind speed, and temperature each map to a distinct synthesis parameter
+- **Temperature**: colder weather spreads the pad's detune wider and makes plucks glassier; warmer weather swells in more slowly and rounds the plucks off
 - **Weather-type classification**: Open-Meteo's WMO weather code (`lib/weatherCode.ts`) distinguishes snow and thunderstorms from ordinary rain, driving both the sky visuals and the "now playing" weather label ("SNOW", "THUNDERSTORM") instead of treating every kind of precipitation as generic rain
 - **Interaction activity**: keyboard/mouse/scroll cadence and tab-visibility state on the page itself, used as an honest, documented proxy for "system activity" since a browser sandbox can't read real OS/CPU telemetry
 - **Simulate mode**: sliders for hour, rain, cloud cover, wind, temperature, and activity, plus a Clear/Rain/Snow/Storm weather-type picker, so you can preview "3am + heavy rain" (or a thunderstorm) without waiting for it to actually happen
 - **Location picker**: search any city (Open-Meteo's free geocoding API) to deliberately listen to weather somewhere other than wherever you are. The sky's sun/moon position and the tempo/scale mapping follow *that place's* real local time (computed from the location's UTC offset, `lib/localHour.ts`), not the browser's own clock, so a picked city's night actually looks like night there. The choice persists across reloads; "Use my location" reverts to normal geolocation
+
+### Session Controls
+
+- **Sleep timer**: 15, 30, 60 or 90 minutes from the Studio's Session card. The music fades out over the final 30 seconds and stops on time, with a live countdown in the tray. It cancels itself if playback stops
+- **Focus mode**: the same live sound with the attention-grabbing parts held down. The arp stops reacting to typing, drums and hi-hat thin to a soft pulse, the top end is rounded off, chords stay on I/IV/vi and are held longer, and thunder is skipped. Key, mode, tempo and weather textures still follow the live inputs. It's applied on top of the sound (`mapping/focusMode.ts`), so presets and share links keep the unfocused version. Remembered across reloads
 
 ### Session Capture
 
@@ -55,7 +63,7 @@ This project is for personal and educational use. It is **not a medical, therape
 
 ### PWA
 
-- Installable app shell (`manifest.webmanifest` + a minimal same-origin service worker that deliberately never caches `/api/*`, so weather/presets always stay live), with an SVG icon plus rasterized 192×192/512×512 PNGs for install flows that need them
+- Installable app shell (`manifest.webmanifest` + a minimal same-origin service worker that deliberately never caches `/api/*`, so weather/presets always stay live), with an SVG icon plus rasterized 192×192/512×512 PNGs for install flows that need them, and a maskable variant (full-bleed background, artwork inside the safe zone) so Android's circle/squircle masks don't clip it
 - **Screen Wake Lock** while the engine is playing, so a phone or tablet doesn't fall asleep mid-session, with automatic re-acquisition if the tab regains visibility
 
 ### UI/UX: "Living Sky"
@@ -102,7 +110,7 @@ This project is for personal and educational use. It is **not a medical, therape
 
 ## Prerequisites
 
-- **Node.js 18+**: [Download here](https://nodejs.org/) (needs global `fetch`)
+- **Node.js 20+**: [Download here](https://nodejs.org/) (the app itself needs global `fetch`; the Vitest test runner needs 20+)
 
 No API keys, no database, no Docker required.
 
@@ -141,6 +149,7 @@ ambient-weather-engine/
 ├── README.md
 ├── LICENSE
 ├── package.json                 # root dev orchestration (concurrently) + test runner
+├── .github/workflows/ci.yml     # runs both test suites + client build on every push/PR
 │
 ├── server/
 │   ├── package.json
@@ -171,15 +180,20 @@ ambient-weather-engine/
     │   ├── sw.js                 # app-shell service worker (never caches /api/*)
     │   ├── icon.svg
     │   ├── icon-192.png
-    │   └── icon-512.png
+    │   ├── icon-512.png
+    │   ├── icon-maskable.svg     # padded variant for OS icon masks
+    │   ├── icon-maskable-192.png
+    │   └── icon-maskable-512.png
     └── src/
         ├── main.tsx              # SW registration (production builds only), wraps <App> in <ErrorBoundary>
         ├── App.tsx               # wires inputs → mapping → engine → sky/tray/drawer
         ├── types.ts
         ├── audio/
         │   ├── AudioEngine.ts        # the DSP: layers, loops, mixer, recording tap, thunder
-        │   ├── musicTheory.ts        # scales, chords, scale-degree random walk
-        │   └── musicTheory.test.ts
+        │   ├── musicTheory.ts        # scales, chords, chord progressions, daily key
+        │   ├── musicTheory.test.ts
+        │   ├── drumPattern.ts        # probabilistic 16-step lo-fi groove (pure)
+        │   └── drumPattern.test.ts
         ├── sky/
         │   ├── skyMath.ts            # sun/moon arc, sky gradient, star opacity (pure)
         │   └── skyMath.test.ts
@@ -191,7 +205,8 @@ ambient-weather-engine/
         │   ├── useWakeLock.ts
         │   ├── useLightning.ts       # randomized strike timing for storm sky/audio
         │   ├── useLightning.test.ts
-        │   └── useMediaSession.ts    # OS lock-screen/notification play-pause + metadata
+        │   ├── useMediaSession.ts    # OS lock-screen/notification play-pause + metadata
+        │   └── useSleepTimer.ts      # countdown that triggers the final fade-out
         ├── lib/
         │   ├── presetsStore.ts       # backend-first, localStorage-fallback preset CRUD
         │   ├── presetsStore.test.ts
@@ -203,7 +218,9 @@ ambient-weather-engine/
         │   ├── weatherCode.test.ts
         │   ├── formatTime.ts         # fractional hour → "HH:MM"
         │   ├── formatTime.test.ts
-        │   ├── localHour.ts          # UTC offset + real time → a location's local hour
+        │   ├── localHour.ts          # a location's local hour and day of year (for the daily key)
+        │   ├── sleepTimer.ts         # sleep timer options, countdown formatting
+        │   ├── sleepTimer.test.ts
         │   ├── localHour.test.ts
         │   ├── geocode.ts            # city name search (Open-Meteo geocoding, client-side)
         │   ├── geocode.test.ts
@@ -214,11 +231,13 @@ ambient-weather-engine/
         │   └── clipboard.ts          # copy-to-clipboard with a legacy fallback
         ├── mapping/
         │   ├── parameterMapping.ts   # pure function: inputs → AmbientParams (+ nightness)
-        │   └── parameterMapping.test.ts
+        │   ├── parameterMapping.test.ts
+        │   ├── focusMode.ts          # pure: calmer version of resolved params
+        │   └── focusMode.test.ts
         └── components/
             ├── SkyScene.tsx          # full-viewport animated background
             ├── NowPlayingTray.tsx    # primary glass panel: time, meta, transport
-            ├── ControlPanel.tsx      # Studio drawer: simulate sliders, mixer, presets
+            ├── ControlPanel.tsx      # Studio drawer: session (focus, sleep), simulate sliders, mixer, presets
             ├── LocationPicker.tsx    # city search, inside the Studio drawer
             ├── StatusPanel.tsx       # compact input/parameter readout, inside the drawer
             ├── Visualizer.tsx
@@ -287,7 +306,7 @@ npm test --prefix server         # Vitest + Supertest: health/weather/presets ro
 npm test --prefix client         # Vitest: musicTheory, parameterMapping, skyMath, presetsStore fallback, etc.
 ```
 
-Coverage is intentionally scoped to deterministic, side-effect-free logic: pure functions (`musicTheory.ts`, `parameterMapping.ts`, `skyMath.ts`, `weatherIntensity.ts`, `weatherLabel.ts`, `formatTime.ts`), the preset store's network-failure fallback, and the Express routes (with `fetch` mocked and the data file redirected to a temp path via `PRESETS_DATA_FILE`). The stateful, Tone.js-dependent `AudioEngine` and the DOM-heavy `SkyScene`/`NowPlayingTray` components are exercised by manual/browser testing rather than unit tests, since they wrap live Web Audio nodes and CSS animation respectively. That's also exactly how a real bug got caught during development: a color-mixing helper was accidentally fed an already-stringified `rgb(...)` value back into a hex-only parser, silently producing `NaN` channels that the browser's CSSOM rejected outright (an empty inline style, sky rendered black) while the original loose regex-based unit test didn't notice. The fix keeps color math in an `{r,g,b}` object until the final CSS-string conversion, and the test now asserts well-formed, in-range `rgb()` output across the whole input range instead of a loose brightness proxy.
+Coverage is intentionally scoped to deterministic, side-effect-free logic: pure functions (`musicTheory.ts`, `drumPattern.ts`, `parameterMapping.ts`, `focusMode.ts`, `sleepTimer.ts`, `skyMath.ts`, `weatherIntensity.ts`, `weatherLabel.ts`, `formatTime.ts`), the preset store's network-failure fallback, and the Express routes (with `fetch` mocked and the data file redirected to a temp path via `PRESETS_DATA_FILE`). The stateful, Tone.js-dependent `AudioEngine` and the DOM-heavy `SkyScene`/`NowPlayingTray` components are exercised by manual/browser testing rather than unit tests, since they wrap live Web Audio nodes and CSS animation respectively. That's also exactly how a real bug got caught during development: a color-mixing helper was accidentally fed an already-stringified `rgb(...)` value back into a hex-only parser, silently producing `NaN` channels that the browser's CSSOM rejected outright (an empty inline style, sky rendered black) while the original loose regex-based unit test didn't notice. The fix keeps color math in an `{r,g,b}` object until the final CSS-string conversion, and the test now asserts well-formed, in-range `rgb()` output across the whole input range instead of a loose brightness proxy.
 
 ---
 
@@ -298,17 +317,19 @@ Coverage is intentionally scoped to deterministic, side-effect-free logic: pure 
 - ~~The sky can show the "wrong" sun/moon if the weather location's timezone doesn't match the browser's clock~~ **Fixed**: adding the location picker meant computing a location's real local hour from its UTC offset (`lib/localHour.ts`) rather than trusting the browser's own clock, and that fix applies universally, not just when a location is deliberately picked. Whatever location the weather ends up resolving to (your own, an IP guess, or the configured default), the sky's sun/moon now follows that place's actual time.
 - **The IP-geolocation fallback is automatic, not opt-in.** Unlike browser geolocation (an explicit permission prompt), if you deny that prompt the backend silently tries to approximate your location from your IP via a third party (ipapi.co) with no separate consent step. This is disclosed both here and directly in the app's Studio drawer, and the "Weather" line always names which source (`client` / `ip` / `default`) is actually in use, but it's still worth knowing it happens.
 - **Weather coordinates travel in a GET query string** (`/api/weather?lat=&lon=`) rather than a POST body. Low risk since it's a same-origin request to this app's own backend, but query strings can end up in server access logs, which isn't best practice for anything more sensitive than approximate weather-lookup coordinates.
-- **The PWA icons aren't maskable-safe.** The SVG and PNG icons are tagged `purpose: "any"`, not `"maskable"`; a maskable variant needs extra padding so OS icon masks (circle, squircle, etc.) don't clip the artwork, which the current layout doesn't guarantee.
+- ~~The PWA icons aren't maskable-safe~~ **Fixed**: a padded maskable variant (`icon-maskable.svg` plus 192/512 PNGs) is now registered alongside the original icons.
 - React's `<StrictMode>` is intentionally omitted: its dev-mode double effect invocation tears down and rebuilds the live Tone.js audio graph mid-session, which is more confusing than useful here.
 
 ---
 
 ## Suggested Future Features
 
-- **Additional live inputs**: season/day-of-week for longer-period variety, or a simple binaural/isochronic layer toggle for a focus-mode variant
+- **Sparse melody line**: an occasional lead phrase over the pads, more frequent when you're active
+- **More weather textures**: wind gusts, a snowfall shimmer, crickets on warm nights, birdsong around sunrise, and a musical swell when the real sun crosses the horizon
+- **Additional live inputs**: season and moon phase for longer-period variety
+- **Forecast preview**: "listen to tonight's storm" ahead of time from Open-Meteo's forecast data
+- **Browser tests**: Playwright checks that the app starts, the Studio opens, and presets and the sleep timer work
 - **Multi-listener sync**: a WebSocket relay so multiple browser tabs/people hear the same generative session in phase, for shared "listening rooms"
-- **Dockerization**: a `docker-compose.yml` bundling client + server for one-command deployment, mirroring the setup used in other projects in this portfolio
-- **Maskable PWA icon variant**: a version of the icon with enough safe-zone padding to survive OS icon masking, addressing the limitation noted above
 
 ---
 
