@@ -69,3 +69,15 @@ describe('mapInputsToParams', () => {
     }
   });
 });
+
+describe('daily key', () => {
+  it('defaults to C3 when no day is given', () => {
+    expect(mapInputsToParams(inputs()).rootNote).toBe(48);
+  });
+
+  it('changes key from one day to the next', () => {
+    const today = mapInputsToParams(inputs({ dayOfYear: 100 }));
+    const tomorrow = mapInputsToParams(inputs({ dayOfYear: 101 }));
+    expect(today.rootNote).not.toBe(tomorrow.rootNote);
+  });
+});

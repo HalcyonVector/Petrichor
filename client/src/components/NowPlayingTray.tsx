@@ -4,6 +4,7 @@ import type { AmbientParams, WeatherSnapshot } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { weatherLabel } from '../lib/weatherLabel';
 import { Visualizer } from './Visualizer';
+import { keyName } from '../audio/musicTheory';
 
 interface NowPlayingTrayProps {
   hour: number;
@@ -35,7 +36,7 @@ export function NowPlayingTray({
   const meta = [
     weatherLabel(weather),
     weather ? `${Math.round(weather.temperatureC)}°C` : null,
-    params.scaleMode.toUpperCase(),
+    `${keyName(params.rootNote)} ${params.scaleMode.toUpperCase()}`,
     `${Math.round(params.tempo)} BPM`,
     isManual ? 'PRESET' : null,
   ]

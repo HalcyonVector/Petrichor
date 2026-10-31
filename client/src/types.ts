@@ -4,7 +4,7 @@ export type ScaleName = 'lydian' | 'major' | 'mixolydian' | 'dorian' | 'minor' |
 export interface AmbientParams {
   tempo: number; // BPM driving Tone.Transport
   scaleMode: ScaleName;
-  rootNote: number; // MIDI note number, e.g. 48 = C3
+  rootNote: number; // MIDI note number of the key, e.g. 48 = C3; changes daily
   octaveShift: number; // -2..2, register shift for the whole mix
   brightness: number; // 0..1, drives lowpass filter cutoff
   padVoices: number; // 3..6, chord size / detuned voice count
@@ -42,6 +42,8 @@ export interface LiveInputs {
   hour: number; // 0..24, local time as a float
   weather: WeatherSnapshot | null;
   activity: ActivitySnapshot;
+  /** 0 = 1 January. Picks the day's key; omitted means C. */
+  dayOfYear?: number;
 }
 
 export interface Preset {

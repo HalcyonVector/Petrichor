@@ -8,6 +8,8 @@ import { useWakeLock } from './inputs/useWakeLock';
 import { useLightning } from './inputs/useLightning';
 import { useMediaSession } from './inputs/useMediaSession';
 import { mapInputsToParams } from './mapping/parameterMapping';
+import { dayOfYear } from './lib/localHour';
+import { keyName } from './audio/musicTheory';
 import { isThunderstorm } from './lib/weatherCode';
 import { listPresets, savePreset, deletePreset } from './lib/presetsStore';
 import type { PresetSource } from './lib/presetsStore';
@@ -122,7 +124,13 @@ export default function App() {
   // wherever the browser happens to be.
   const liveHour = useTimeOfDay(simulate ? sim.hour : null, !simulate ? weather?.utcOffsetSeconds ?? null : null);
 
-  const inputs: LiveInputs = useMemo(() => ({ hour: liveHour, weather, activity }), [liveHour, weather, activity]);
+  // Recomputed whenever the hour ticks, so the key rolls over at midnight
+  // (at the picked location's midnight when a location override is active).
+  const utcOffset = !simulate ? weather?.utcOffsetSeconds ?? null : null;
+  const inputs: LiveInputs = useMemo(
+    () => ({ hour: liveHour, weather, activity, dayOfYear: dayOfYear(Date.now(), utcOffset) }),
+    [liveHour, weather, activity, utcOffset],
+  );
   const liveParams = useMemo(() => mapInputsToParams(inputs), [inputs]);
   const effectiveParams = manualParams ?? liveParams;
 
@@ -196,7 +204,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [started]);
 
-  const scaleLabel = effectiveParams.scaleMode.charAt(0).toUpperCase() + effectiveParams.scaleMode.slice(1);
+  const scaleLabel = `${keyName(effectiveParams.rootNote)} ${effectiveParams.scaleMode}`;
   useMediaSession(
     started,
     { title: `${scaleLabel} · ${Math.round(effectiveParams.tempo)} BPM`, artist: 'Petrichor' },
