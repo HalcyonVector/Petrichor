@@ -39,3 +39,10 @@ describe('weatherLabel', () => {
     expect(weatherLabel(weather({ weatherCode: 95, precipitationMm: 4 }))).toBe('THUNDERSTORM');
   });
 });
+
+describe('weatherLabel without a reading', () => {
+  it('says LOADING while waiting and WEATHER OFFLINE once the fetch has failed', () => {
+    expect(weatherLabel(null)).toBe('LOADING');
+    expect(weatherLabel(null, true)).toBe('WEATHER OFFLINE');
+  });
+});

@@ -116,3 +116,17 @@ export function keyRootForDay(dayOfYear: number): number {
 export function keyName(midi: number): string {
   return NOTE_NAMES[((Math.round(midi) % 12) + 12) % 12];
 }
+
+/** Triad quality from its stacked thirds: '' major, 'm' minor, 'dim', 'aug'. */
+export function triadQuality(root: number, scale: ScaleName, degree: number): '' | 'm' | 'dim' | 'aug' {
+  const [a, b, c] = buildChord(root, scale, degree, 3);
+  const third = b - a;
+  const fifth = c - a;
+  if (third === 3) return fifth === 6 ? 'dim' : 'm';
+  return fifth === 8 ? 'aug' : '';
+}
+
+/** Display name of the triad on a scale degree, e.g. "Am", "F", "Bdim". */
+export function chordName(root: number, scale: ScaleName, degree: number): string {
+  return `${keyName(scaleDegreeToMidi(root, scale, degree))}${triadQuality(root, scale, degree)}`;
+}

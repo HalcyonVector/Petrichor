@@ -2,8 +2,8 @@ import type { WeatherSnapshot } from '../types';
 import { isSnowing, isThunderstorm } from './weatherCode';
 
 /** Short, human weather word for the "now playing" meta line: "LIGHT RAIN", not "1.20mm". */
-export function weatherLabel(weather: WeatherSnapshot | null): string {
-  if (!weather) return 'LOADING';
+export function weatherLabel(weather: WeatherSnapshot | null, offline = false): string {
+  if (!weather) return offline ? 'WEATHER OFFLINE' : 'LOADING';
   const { precipitationMm, cloudCoverPct, weatherCode } = weather;
 
   if (isThunderstorm(weatherCode)) return 'THUNDERSTORM';

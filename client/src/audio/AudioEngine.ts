@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 import { drumHitsForStep } from './drumPattern';
-import { buildChord, midiToNoteName, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
+import { buildChord, chordName, midiToNoteName, triadQuality, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
 import type { ScaleName } from '../types';
 import type { AmbientParams } from '../types';
 
@@ -19,6 +19,27 @@ const DEFAULT_PARAMS: AmbientParams = {
   warmth: 0.5,
   reverbWet: 0.4,
 };
+
+// Ambient playback doesn't need low latency, so trade it for a bigger audio
+// buffer. Tone's default ("interactive") asks for the smallest buffer the
+// device allows; under load (pads, reverb tail, drums, the animated sky on the
+// main thread) the audio thread can then run dry, which is heard as crackles
+// and pops. A larger lookahead also gives scheduled notes more slack when the
+// page is busy. Created once, on first build, before any audio node exists.
+let playbackContextReady = false;
+function usePlaybackContext() {
+  if (playbackContextReady) return;
+  playbackContextReady = true;
+  Tone.setContext(new Tone.Context({ latencyHint: 'playback', lookAhead: 0.25 }));
+}
+
+/** Musical moments the UI can react to. Delivered in sync with the audio (via Tone's Draw), not when scheduled. */
+export type EngineEvent =
+  | { type: 'kick'; velocity: number }
+  | { type: 'note' }
+  | { type: 'chord'; name: string; major: boolean; keyChanged: boolean };
+
+export type EngineListener = (event: EngineEvent) => void;
 
 export type MixLayer = 'pad' | 'bass' | 'arp' | 'hihat' | 'drums' | 'rain';
 
@@ -42,7 +63,7 @@ const RAIN_BASE_GAIN = 0.18;
 
 /**
  * The synthesis engine: a handful of Tone.js layers (pad, sub bass, plucked
- * arp, hihat, filtered rain noise) driven by Tone.Transport loops. All
+ * arp, hihat, filtered rain noise) driven by transport loops. All
  * musical decisions (which chord, which note) are made live inside the loop
  * callbacks so `updateParams` can reshape the sound of a piece that's
  * already playing, rather than restarting anything.
@@ -62,6 +83,11 @@ export class AudioEngine {
   private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
 
   private master!: Tone.Gain;
+  private limiter!: Tone.Limiter;
+  // Last values pushed to the synths, so unchanged settings aren't re-applied
+  // to sounding voices on every (frequent) parameter update.
+  private appliedPadTone = '';
+  private appliedDampening = -1;
   private analyser!: Tone.Analyser;
   private reverb!: Tone.Reverb;
   private padFilter!: Tone.Filter;
@@ -88,6 +114,8 @@ export class AudioEngine {
   private hihatLoop?: Tone.Loop;
   private drumLoop?: Tone.Loop;
 
+  private listeners = new Set<EngineListener>();
+
   private recordingDestination?: MediaStreamAudioDestinationNode;
 
   private built = false;
@@ -96,8 +124,13 @@ export class AudioEngine {
   private build() {
     if (this.built) return;
     this.built = true;
+    usePlaybackContext();
 
-    this.master = new Tone.Gain(0.85).toDestination();
+    // Safety limiter on the way out: thunder and stacked chords can spike, and
+    // a hard-clipped peak is heard as a crack. Normal playback sits well below
+    // its threshold, so it's inaudible the rest of the time.
+    this.limiter = new Tone.Limiter(-1).toDestination();
+    this.master = new Tone.Gain(0.85).connect(this.limiter);
     this.analyser = new Tone.Analyser('waveform', 1024);
     this.master.connect(this.analyser);
 
@@ -114,13 +147,21 @@ export class AudioEngine {
     this.filterLfo.connect(this.padFilter.frequency);
     this.filterLfo.start();
 
-    this.padSynth = new Tone.PolySynth(Tone.Synth, {
-      oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
-      envelope: { attack: 4, decay: 2, sustain: 0.65, release: 8 },
+    this.padSynth = new Tone.PolySynth({
+      voice: Tone.Synth,
+      // Long releases overlap the next chord; capping voices bounds the CPU cost.
+      maxPolyphony: 16,
+      options: {
+        oscillator: { type: 'fatsawtooth', count: 3, spread: 20 },
+        envelope: { attack: 4, decay: 2, sustain: 0.65, release: 8 },
+      },
     });
     this.padSynth.connect(this.padFilter);
 
     this.bassSynth = new Tone.MonoSynth({
+      // The bass now moves with the chords, and a new note can arrive while the
+      // last one is still releasing; a short glide avoids an abrupt jump.
+      portamento: 0.06,
       oscillator: { type: 'sine' },
       envelope: { attack: 2, decay: 1, sustain: 0.8, release: 5 },
       filter: { type: 'lowpass', frequency: 500, rolloff: -12 },
@@ -174,9 +215,9 @@ export class AudioEngine {
     this.thunderSynth.volume.value = -6;
     this.thunderSynth.connect(this.thunderFilter);
 
-    Tone.Transport.bpm.value = this.params.tempo;
-    Tone.Transport.swingSubdivision = '16n';
-    Tone.Transport.swing = SWING;
+    Tone.getTransport().bpm.value = this.params.tempo;
+    Tone.getTransport().swingSubdivision = '16n';
+    Tone.getTransport().swing = SWING;
 
     this.applyPadVolume();
     this.applyBassVolume();
@@ -187,19 +228,22 @@ export class AudioEngine {
   }
 
   async start() {
-    this.build();
     if (this.started) return;
     this.cancelFade();
+    // Unlock audio before building the graph, so nodes are created on a
+    // running context (avoids Tone's "AudioContext is suspended" warnings).
+    usePlaybackContext();
     await Tone.start();
+    this.build();
     this.scheduleLoops();
-    Tone.Transport.start();
+    Tone.getTransport().start();
     this.started = true;
   }
 
   stop() {
     this.cancelFade();
     if (!this.started) return;
-    Tone.Transport.stop();
+    Tone.getTransport().stop();
     this.padLoop?.dispose();
     this.arpLoop?.dispose();
     this.hihatLoop?.dispose();
@@ -269,6 +313,20 @@ export class AudioEngine {
     return this.recordingDestination.stream;
   }
 
+  /** Subscribe to musical events (chords, arp notes, kicks). Returns an unsubscribe function. */
+  onEvent(listener: EngineListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /** Fires listeners at the moment `time` is actually heard, not when it was scheduled ahead. */
+  private emit(event: EngineEvent, time: number) {
+    if (this.listeners.size === 0) return;
+    Tone.getDraw().schedule(() => this.listeners.forEach((listener) => listener(event)), time);
+  }
+
   /**
    * Focus mode: calmer harmony (I/IV/vi only, chords held longer) and no
    * thunder. The parameter side of focus mode (quieter arp and drums) is
@@ -317,7 +375,7 @@ export class AudioEngine {
     this.params = next;
     if (!this.built) return;
 
-    Tone.Transport.bpm.rampTo(next.tempo, 4);
+    Tone.getTransport().bpm.rampTo(next.tempo, 4);
 
     const cutoffCenter = 200 + next.brightness * 4200;
     const cutoffSpread = 250 + next.windModulation * 900;
@@ -335,9 +393,17 @@ export class AudioEngine {
     const detuneSpread = 8 + (1 - next.warmth) * 35; // colder => more detuned/dissonant spread
     // Warmer weather swells in more slowly; cold weather is crisper.
     const padAttack = 2.5 + next.warmth * 3;
-    this.padSynth.set({ oscillator: { spread: detuneSpread }, envelope: { attack: padAttack } });
+    const padTone = `${detuneSpread.toFixed(2)}|${padAttack.toFixed(2)}`;
+    if (padTone !== this.appliedPadTone) {
+      this.appliedPadTone = padTone;
+      this.padSynth.set({ oscillator: { spread: detuneSpread }, envelope: { attack: padAttack } });
+    }
     // Cold makes the plucks glassy and bright, warmth makes them rounder.
-    this.arpSynth.dampening = 1800 + (1 - next.warmth) * 3400;
+    const dampening = Math.round(1800 + (1 - next.warmth) * 3400);
+    if (dampening !== this.appliedDampening) {
+      this.appliedDampening = dampening;
+      this.arpSynth.dampening = dampening;
+    }
 
     this.applyHihatVolume();
   }
@@ -401,6 +467,15 @@ export class AudioEngine {
       const chord = buildChord(root, scale, this.chordDegree, chordSize);
       const notes = chord.map(midiToNoteName);
       this.padSynth.triggerAttackRelease(notes, '2m', time);
+      this.emit(
+        {
+          type: 'chord',
+          name: chordName(root, scale, this.chordDegree),
+          major: triadQuality(root, scale, this.chordDegree) === '',
+          keyChanged: harmonyChanged,
+        },
+        time,
+      );
 
       if (Math.random() < 0.65) {
         // The bass follows the chord's own root, which is what makes the
@@ -417,6 +492,7 @@ export class AudioEngine {
       const degree = this.chordDegree + offsets[Math.floor(Math.random() * offsets.length)];
       const midi = scaleDegreeToMidi(root, this.harmonyScale, degree);
       this.arpSynth.triggerAttackRelease(midiToNoteName(midi), '8n', time);
+      this.emit({ type: 'note' }, time);
     }, '8n').start(0);
 
     this.hihatLoop = new Tone.Loop((time) => {
@@ -427,11 +503,14 @@ export class AudioEngine {
 
     // Step position comes from the transport itself, so the pattern stays
     // locked to the bar line however the tempo ramps.
-    const ticksPer16th = Tone.Transport.PPQ / 4;
+    const ticksPer16th = Tone.getTransport().PPQ / 4;
     this.drumLoop = new Tone.Loop((time) => {
-      const step = Math.round(Tone.Transport.getTicksAtTime(time) / ticksPer16th) % 16;
+      const step = Math.round(Tone.getTransport().getTicksAtTime(time) / ticksPer16th) % 16;
       const { kick, rim } = drumHitsForStep(step, this.params.drumDensity ?? FALLBACK_DRUM_DENSITY);
-      if (kick > 0) this.kick.triggerAttackRelease('F1', '8n', time, kick);
+      if (kick > 0) {
+        this.kick.triggerAttackRelease('F1', '8n', time, kick);
+        this.emit({ type: 'kick', velocity: kick }, time);
+      }
       if (rim > 0) this.rim.triggerAttackRelease('32n', time, rim);
     }, '16n').start(0);
   }
@@ -444,11 +523,13 @@ export class AudioEngine {
       this.recordingDestination = undefined;
     }
     [
-      this.master, this.analyser, this.reverb, this.padFilter, this.filterLfo, this.panLfo, this.panner,
+      this.master, this.limiter, this.analyser, this.reverb, this.padFilter, this.filterLfo, this.panLfo, this.panner,
       this.padSynth, this.bassSynth, this.arpSynth, this.hihat, this.kick, this.kickFilter, this.rim, this.rimFilter,
       this.rainNoise, this.rainFilter, this.rainGain,
       this.thunderSynth, this.thunderFilter,
     ].forEach((node) => node?.dispose());
     this.built = false;
+    this.appliedPadTone = '';
+    this.appliedDampening = -1;
   }
 }

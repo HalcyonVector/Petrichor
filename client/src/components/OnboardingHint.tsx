@@ -8,7 +8,7 @@ export function OnboardingHint({ onDismiss }: OnboardingHintProps) {
     <div className="onboarding-hint" role="note">
       <p>
         This is live weather. Time, the weather at your location, and how you use this page shape
-        the sound. <strong>⚙</strong> opens the Studio for more controls.
+        the sound. <strong>Studio</strong> has focus mode, a sleep timer, the mixer and presets.
       </p>
       <button className="ghost" onClick={onDismiss}>
         Got it

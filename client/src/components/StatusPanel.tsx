@@ -4,6 +4,7 @@ import { keyName } from '../audio/musicTheory';
 
 interface StatusPanelProps {
   inputs: LiveInputs;
+  weatherOffline?: boolean;
   params: AmbientParams;
   isManual: boolean;
 }
@@ -12,7 +13,7 @@ function fmt(n: number, digits = 1) {
   return n.toFixed(digits);
 }
 
-export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
+export function StatusPanel({ inputs, weatherOffline = false, params, isManual }: StatusPanelProps) {
   const { hour, weather, activity } = inputs;
 
   return (
@@ -26,7 +27,9 @@ export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
           <dd>
             {weather
               ? `${fmt(weather.temperatureC)}°C, ${fmt(weather.precipitationMm, 2)}mm rain, ${fmt(weather.cloudCoverPct, 0)}% cloud, ${fmt(weather.windSpeedKmh, 0)}km/h wind (${weather.source})`
-              : 'loading…'}
+              : weatherOffline
+                ? 'unavailable right now, retrying. Playing with typical mild weather meanwhile.'
+                : 'loading…'}
           </dd>
           <dt>Activity</dt>
           <dd>{fmt(activity.activity * 100, 0)}% · typing {fmt(activity.typingRate * 100, 0)}%{activity.idle ? ' · idle tab' : ''}</dd>

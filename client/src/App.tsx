@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AudioEngine, type MixLayer } from './audio/AudioEngine';
+import { AudioEngine, type EngineListener, type MixLayer } from './audio/AudioEngine';
 import { useTimeOfDay } from './inputs/useTimeOfDay';
 import { useWeather } from './inputs/useWeather';
 import { useActivity } from './inputs/useActivity';
@@ -26,7 +26,7 @@ import {
 import { SkyScene } from './components/SkyScene';
 import { NowPlayingTray } from './components/NowPlayingTray';
 import { OnboardingHint } from './components/OnboardingHint';
-import { ControlPanel, type SimState } from './components/ControlPanel';
+import { ControlPanel, type SimState, type StudioSection } from './components/ControlPanel';
 import { StatusPanel } from './components/StatusPanel';
 import type { AmbientParams, LiveInputs, Preset, WeatherSnapshot } from './types';
 import './App.css';
@@ -40,6 +40,12 @@ const DEFAULT_SIM: SimState = {
   activity: 0.3,
   weatherCode: 0,
 };
+
+const STUDIO_TABS: { key: StudioSection; label: string }[] = [
+  { key: 'sound', label: 'Sound' },
+  { key: 'source', label: 'Source' },
+  { key: 'presets', label: 'Presets' },
+];
 
 const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
 
@@ -68,6 +74,24 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [focus, setFocus] = useState(() => loadStoredFocus());
   const [fading, setFading] = useState(false);
+  const [chord, setChord] = useState<string | null>(null);
+  const [studioTab, setStudioTab] = useState<StudioSection>('sound');
+  const [keyCue, setKeyCue] = useState(0);
+
+  const subscribeEngine = useCallback(
+    (listener: EngineListener) => engineRef.current?.onEvent(listener) ?? (() => {}),
+    [],
+  );
+
+  useEffect(
+    () =>
+      subscribeEngine((event) => {
+        if (event.type !== 'chord') return;
+        setChord(event.name);
+        if (event.keyChanged) setKeyCue((n) => n + 1);
+      }),
+    [subscribeEngine],
+  );
 
   const dismissOnboarding = () => {
     setShowOnboarding(false);
@@ -122,7 +146,7 @@ export default function App() {
         source: 'client',
       }
     : null;
-  const { weather } = useWeather(simWeather, !simulate ? locationOverride : null);
+  const { weather, status: weatherStatus } = useWeather(simWeather, !simulate ? locationOverride : null);
   const activity = useActivity(simulate ? sim.activity : null);
   // When a location override is active, the hour reflects that place's
   // actual local time (from the weather response's UTC offset), not
@@ -200,6 +224,7 @@ export default function App() {
     engineRef.current?.stop();
     setStarted(false);
     setFading(false);
+    setChord(null);
   };
 
   // Refs so the Space-bar listener below always calls the freshest
@@ -214,6 +239,17 @@ export default function App() {
     setFading(true);
     engineRef.current?.fadeOut(remainingMs / 1000).then(() => handleStopRef.current());
   });
+  const placeLabel = simulate
+    ? 'Simulated weather'
+    : locationOverride?.label ??
+      (weather?.source === 'client'
+        ? 'Your location'
+        : weather?.source === 'ip'
+          ? 'Approximate location'
+          : weather
+            ? 'Default location'
+            : null);
+
   const sleepLabel = fading
     ? 'FADING OUT'
     : sleepTimer.endsAt !== null
@@ -292,7 +328,12 @@ export default function App() {
   return (
     <div className="app">
       <div ref={mainRegionRef}>
-        <SkyScene hour={inputs.hour} weather={inputs.weather} lightningTrigger={lightningTrigger} />
+        <SkyScene
+          hour={inputs.hour}
+          weather={inputs.weather}
+          lightningTrigger={lightningTrigger}
+          subscribe={subscribeEngine}
+        />
 
         <div className="brand">Petrichor</div>
 
@@ -301,6 +342,10 @@ export default function App() {
           <NowPlayingTray
             hour={inputs.hour}
             weather={inputs.weather}
+            weatherOffline={weatherStatus === 'offline'}
+            place={placeLabel}
+            chord={started ? chord : null}
+            keyCue={keyCue}
             params={playedParams}
             isManual={manualParams !== null}
             focus={focus}
@@ -334,51 +379,83 @@ export default function App() {
             </button>
           </div>
 
-          <ControlPanel
-            simulate={simulate}
-            onToggleSimulate={(v) => {
-              setSimulate(v);
-              setManualParams(null);
-            }}
-            sim={sim}
-            onSimChange={(patch) => setSim((prev) => ({ ...prev, ...patch }))}
-            mix={mix}
-            onMixChange={handleMixChange}
-            presets={presets}
-            presetsSource={presetsSource}
-            presetName={presetName}
-            onPresetNameChange={setPresetName}
-            onSavePreset={handleSavePreset}
-            onLoadPreset={handleLoadPreset}
-            onDeletePreset={handleDeletePreset}
-            manualActive={manualParams !== null}
-            onClearManual={() => setManualParams(null)}
-            onCopyShareLink={handleCopyShareLink}
-            linkCopied={linkCopied}
-            locationLabel={locationOverride?.label ?? null}
-            onSelectLocation={handleSelectLocation}
-            onClearLocation={handleClearLocation}
-            started={started}
-            focus={focus}
-            onFocusChange={setFocus}
-            sleepEndsAt={sleepTimer.endsAt}
-            sleepMinutes={sleepTimer.minutes}
-            sleepRemainingMs={sleepTimer.remainingMs}
-            fading={fading}
-            onSetSleep={sleepTimer.set}
-          />
+          <div className="studio-tabs" role="tablist" aria-label="Studio sections">
+            {STUDIO_TABS.map(({ key, label }, index) => (
+              <button
+                key={key}
+                id={`studio-tab-${key}`}
+                type="button"
+                role="tab"
+                aria-selected={studioTab === key}
+                aria-controls="studio-panel"
+                tabIndex={studioTab === key ? 0 : -1}
+                className={studioTab === key ? 'studio-tab studio-tab--active' : 'studio-tab'}
+                onClick={() => setStudioTab(key)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+                  e.preventDefault();
+                  const next = STUDIO_TABS[(index + (e.key === 'ArrowRight' ? 1 : -1) + STUDIO_TABS.length) % STUDIO_TABS.length];
+                  setStudioTab(next.key);
+                  document.getElementById(`studio-tab-${next.key}`)?.focus();
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <StatusPanel inputs={inputs} params={playedParams} isManual={manualParams !== null} />
+          <div id="studio-panel" role="tabpanel" aria-labelledby={`studio-tab-${studioTab}`} className="studio-panel">
+            <ControlPanel
+              section={studioTab}
+              simulate={simulate}
+              onToggleSimulate={(v) => {
+                setSimulate(v);
+                setManualParams(null);
+              }}
+              sim={sim}
+              onSimChange={(patch) => setSim((prev) => ({ ...prev, ...patch }))}
+              mix={mix}
+              onMixChange={handleMixChange}
+              presets={presets}
+              presetsSource={presetsSource}
+              presetName={presetName}
+              onPresetNameChange={setPresetName}
+              onSavePreset={handleSavePreset}
+              onLoadPreset={handleLoadPreset}
+              onDeletePreset={handleDeletePreset}
+              manualActive={manualParams !== null}
+              onClearManual={() => setManualParams(null)}
+              onCopyShareLink={handleCopyShareLink}
+              linkCopied={linkCopied}
+              locationLabel={locationOverride?.label ?? null}
+              onSelectLocation={handleSelectLocation}
+              onClearLocation={handleClearLocation}
+              started={started}
+              focus={focus}
+              onFocusChange={setFocus}
+              sleepEndsAt={sleepTimer.endsAt}
+              sleepMinutes={sleepTimer.minutes}
+              sleepRemainingMs={sleepTimer.remainingMs}
+              fading={fading}
+              onSetSleep={sleepTimer.set}
+            />
 
-          <p className="drawer-footnote">
-            Synthesis engine built on Tone.js oscillators, filters, and envelopes (no samples). Weather via
-            Open-Meteo.
-          </p>
-          <p className="drawer-footnote">
-            Location: only sent to this app's own backend, never stored. If you decline browser location
-            access, the backend guesses roughly from your IP via ipapi.co instead. The "Weather" line above
-            always names the source in use (client, ip, or default).
-          </p>
+            {studioTab === 'source' && (
+              <>
+                <StatusPanel inputs={inputs} weatherOffline={weatherStatus === 'offline'} params={playedParams} isManual={manualParams !== null} />
+
+                <p className="drawer-footnote">
+                  Synthesis engine built on Tone.js oscillators, filters, and envelopes (no samples). Weather via
+                  Open-Meteo.
+                </p>
+                <p className="drawer-footnote">
+                  Location: only sent to this app's own backend, never stored. If you decline browser location
+                  access, the backend guesses roughly from your IP via ipapi.co instead. The "Weather" line above
+                  always names the source in use (client, ip, or default).
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </aside>
     </div>
