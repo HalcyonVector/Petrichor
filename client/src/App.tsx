@@ -12,6 +12,7 @@ import { applyFocusMode } from './mapping/focusMode';
 import { SLEEP_FADE_MS, formatCountdown } from './lib/sleepTimer';
 import { mapInputsToParams } from './mapping/parameterMapping';
 import { dayOfYear } from './lib/localHour';
+import { formatElapsed } from './lib/formatTime';
 import { keyName } from './audio/musicTheory';
 import { isThunderstorm } from './lib/weatherCode';
 import { listPresets, savePreset, deletePreset } from './lib/presetsStore';
@@ -48,6 +49,7 @@ const STUDIO_TABS: { key: StudioSection; label: string }[] = [
   { key: 'sound', label: 'Sound' },
   { key: 'source', label: 'Source' },
   { key: 'presets', label: 'Presets' },
+  { key: 'record', label: 'Record' },
 ];
 
 const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
@@ -222,6 +224,23 @@ export default function App() {
   const getRecordingStream = useCallback(() => engineRef.current?.getRecordingStream() ?? null, []);
   const recorder = useRecorder(getRecordingStream);
 
+  // Elapsed time of the running recording, ticking once a second.
+  const [recordStartedAt, setRecordStartedAt] = useState<number | null>(null);
+  const [recordNow, setRecordNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!recorder.isRecording) {
+      setRecordStartedAt(null);
+      return undefined;
+    }
+    const startedAt = Date.now();
+    setRecordStartedAt(startedAt);
+    setRecordNow(startedAt);
+    const id = setInterval(() => setRecordNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [recorder.isRecording]);
+  const recordingElapsed =
+    recordStartedAt === null ? null : formatElapsed(recordNow - recordStartedAt);
+
   useEffect(() => {
     engineRef.current?.updateParams(playedParams);
   }, [playedParams]);
@@ -394,11 +413,11 @@ export default function App() {
             onStop={handleStop}
             volume={volume}
             onVolumeChange={setVolume}
-            isRecording={recorder.isRecording}
-            recordingUrl={recorder.recordingUrl}
-            recordingError={recorder.error}
-            onStartRecording={recorder.start}
-            onStopRecording={recorder.stop}
+            recordingLabel={recorder.isRecording ? recordingElapsed : null}
+            onOpenRecording={() => {
+              setStudioTab('record');
+              setDrawerOpen(true);
+            }}
             drawerOpen={drawerOpen}
             onToggleDrawer={() => setDrawerOpen((v) => !v)}
             drawerToggleRef={drawerToggleRef}
@@ -431,7 +450,14 @@ export default function App() {
 
       {drawerOpen && <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)} />}
 
-      <aside ref={drawerRef} className={`drawer${drawerOpen ? ' drawer--open' : ''}`} aria-hidden={!drawerOpen}>
+      <aside
+        ref={drawerRef}
+        className={`drawer${drawerOpen ? ' drawer--open' : ''}`}
+        aria-hidden={!drawerOpen}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Studio"
+      >
         <div className="drawer-inner">
           <div className="drawer-header">
             <span>Studio</span>
@@ -499,6 +525,12 @@ export default function App() {
               sleepRemainingMs={sleepTimer.remainingMs}
               fading={fading}
               onSetSleep={sleepTimer.set}
+              isRecording={recorder.isRecording}
+              recordingElapsed={recordingElapsed}
+              recordingUrl={recorder.recordingUrl}
+              recordingError={recorder.error}
+              onStartRecording={recorder.start}
+              onStopRecording={recorder.stop}
             />
 
             {studioTab === 'source' && (

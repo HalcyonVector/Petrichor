@@ -4,7 +4,7 @@ import type { AmbientParams, WeatherSnapshot } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { weatherLabel } from '../lib/weatherLabel';
 import { Visualizer } from './Visualizer';
-import { IconClose, IconDownload, IconExpand, IconRecord, IconSliders, IconStopRecord } from './trayIcons';
+import { IconClose, IconExpand, IconPlay, IconSliders, IconStop } from './trayIcons';
 import { keyName } from '../audio/musicTheory';
 
 interface NowPlayingTrayProps {
@@ -28,11 +28,9 @@ interface NowPlayingTrayProps {
   onStop: () => void;
   volume: number;
   onVolumeChange: (v: number) => void;
-  isRecording: boolean;
-  recordingUrl: string | null;
-  recordingError: string | null;
-  onStartRecording: () => void;
-  onStopRecording: () => void;
+  /** "0:42" while a recording is running, else null. Shown as a REC badge that opens the Record tab. */
+  recordingLabel: string | null;
+  onOpenRecording: () => void;
   drawerOpen: boolean;
   onToggleDrawer: () => void;
   drawerToggleRef?: Ref<HTMLButtonElement>;
@@ -43,10 +41,14 @@ interface NowPlayingTrayProps {
 export function NowPlayingTray({
   hour, weather, weatherOffline, place, chord, keyCue, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
   volume, onVolumeChange,
-  isRecording, recordingUrl, recordingError, onStartRecording, onStopRecording,
+  recordingLabel, onOpenRecording,
   drawerOpen, onToggleDrawer, drawerToggleRef, onEnterImmersive, immersiveToggleRef,
 }: NowPlayingTrayProps) {
-  const before = [weatherLabel(weather, weatherOffline), weather ? `${Math.round(weather.temperatureC)}°C` : null];
+  const where = [
+    place,
+    weatherLabel(weather, weatherOffline),
+    weather ? `${Math.round(weather.temperatureC)}°C` : null,
+  ];
   const keyLabel = `${keyName(params.rootNote)} ${params.scaleMode.toUpperCase()}`;
   const after = [
     `${Math.round(params.tempo)} BPM`,
@@ -59,17 +61,23 @@ export function NowPlayingTray({
   return (
     <div className="tray">
       <div className="tray-top">
-        <span className="tray-place">{place ?? '\u00a0'}</span>
-        {chord && (
-          <span key={chord} className="tray-chord" title="Chord playing now">
-            {chord}
-          </span>
-        )}
+        <span className="tray-place">{join(where) || '\u00a0'}</span>
+        <span className="tray-top-right">
+          {recordingLabel && (
+            <button type="button" className="tray-rec-badge" onClick={onOpenRecording} title="Recording: open the Record tab">
+              <span className="tray-rec-dot" aria-hidden="true" />
+              REC {recordingLabel}
+            </button>
+          )}
+          {chord && (
+            <span key={chord} className="tray-chord" title="Chord playing now">
+              {chord}
+            </span>
+          )}
+        </span>
       </div>
       <div className="tray-time">{formatClock(hour)}</div>
       <div className="tray-meta">
-        {join(before)}
-        {' · '}
         <span key={keyCue} className={keyCue > 0 ? 'tray-meta-key tray-meta-key--changed' : 'tray-meta-key'}>
           {keyLabel}
         </span>
@@ -86,7 +94,7 @@ export function NowPlayingTray({
           aria-label={started ? 'Stop' : 'Start'}
           title={started ? 'Stop (Space)' : 'Start (Space)'}
         >
-          {started ? '■' : '▶'}
+          {started ? <IconStop /> : <IconPlay />}
         </button>
 
         <input
@@ -102,29 +110,6 @@ export function NowPlayingTray({
         />
 
         <button
-          className={`tray-pill tray-rec${isRecording ? ' tray-rec--live' : ''}`}
-          onClick={isRecording ? onStopRecording : onStartRecording}
-          disabled={!started}
-          aria-label={isRecording ? 'Stop recording' : 'Record'}
-          title={started ? (isRecording ? 'Stop recording' : 'Record this session') : 'Start playback to record'}
-        >
-          {isRecording ? <IconStopRecord /> : <IconRecord />}
-          <span className="tray-pill-label">{isRecording ? 'Stop' : 'Rec'}</span>
-        </button>
-
-        {recordingUrl && (
-          <a
-            className="tray-pill tray-pill--icon"
-            href={recordingUrl}
-            download={`petrichor-session-${Date.now()}.webm`}
-            aria-label="Download recording"
-            title="Download recording"
-          >
-            <IconDownload />
-          </a>
-        )}
-
-        <button
           ref={immersiveToggleRef}
           className="tray-pill tray-pill--icon"
           onClick={onEnterImmersive}
@@ -138,9 +123,9 @@ export function NowPlayingTray({
           ref={drawerToggleRef}
           className={`tray-pill tray-drawer-toggle${drawerOpen ? ' tray-drawer-toggle--open' : ''}`}
           onClick={onToggleDrawer}
-          aria-label={drawerOpen ? 'Close studio panel' : 'Open studio panel'}
+          aria-label={drawerOpen ? 'Close studio' : 'Open studio'}
           aria-expanded={drawerOpen}
-          title="Studio: focus, sleep timer, mixer, presets"
+          title="Studio: focus, sleep timer, mixer, presets, recording"
         >
           {drawerOpen ? <IconClose /> : <IconSliders />}
           <span className="tray-pill-label">Studio</span>
@@ -152,8 +137,6 @@ export function NowPlayingTray({
           or press <kbd>Space</kbd>
         </div>
       )}
-
-      {recordingError && <div className="tray-error">{recordingError}</div>}
     </div>
   );
 }
