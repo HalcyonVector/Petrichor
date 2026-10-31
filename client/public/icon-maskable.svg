@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Maskable variant of icon.svg: full-bleed background (no rounded corners,
+       the OS applies its own mask), with the sun and stars pulled inside the
+       central 80% safe zone so circles and squircles never clip them. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c2436" />
+      <stop offset="100%" stop-color="#05070c" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffe3ad" />
+      <stop offset="55%" stop-color="#c9902f" />
+      <stop offset="100%" stop-color="#c9902f" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)" />
+  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <circle cx="340" cy="190" r="130" fill="url(#glow)" opacity="0.55" />
+    <circle cx="340" cy="190" r="54" fill="#f2c568" />
+    <circle cx="120" cy="120" r="4" fill="#ffffff" opacity="0.8" />
+    <circle cx="172" cy="88" r="3" fill="#ffffff" opacity="0.6" />
+    <circle cx="90" cy="205" r="3" fill="#ffffff" opacity="0.7" />
+    <circle cx="150" cy="230" r="2.4" fill="#ffffff" opacity="0.5" />
+  </g>
+  <!-- Hills run edge to edge; only their crest needs to sit in the safe zone. -->
+  <path d="M0 388 L70 368 L150 380 L230 356 L320 376 L400 360 L512 372 L512 512 L0 512 Z" fill="#0d1420" />
+</svg>

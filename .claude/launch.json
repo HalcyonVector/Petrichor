@@ -5,7 +5,7 @@
       "name": "petrichor-client",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "client"],
-      "port": 5173
+      "port": 5273
     }
   ]
 }
