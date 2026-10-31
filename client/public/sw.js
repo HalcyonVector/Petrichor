@@ -1,7 +1,12 @@
-// Minimal app-shell service worker: stale-while-revalidate for same-origin
-// GET requests, and it deliberately never touches /api/* — weather and
-// presets must always hit the network, never a stale cache.
-const CACHE_NAME = 'ambient-weather-engine-v1';
+// Minimal app-shell service worker. It deliberately never touches /api/*:
+// weather and presets must always hit the network, never a stale cache.
+//
+// Page loads (navigations) are network-first: the HTML names the current
+// build's hashed JS/CSS, so serving a cached copy first would keep showing
+// the previous release until a second reload after every deploy. The cache
+// is only the offline fallback for pages. Hashed assets never change once
+// built, so for everything else a cached copy is safe to serve first.
+const CACHE_NAME = 'petrichor-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -29,6 +34,22 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+
+  const isPage = request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html');
+  if (isPage) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html'))),
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(request).then((cached) => {
