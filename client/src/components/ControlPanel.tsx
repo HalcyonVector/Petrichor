@@ -27,6 +27,7 @@ const MIX_LAYERS: { key: MixLayer; label: string }[] = [
   { key: 'bass', label: 'Bass' },
   { key: 'arp', label: 'Arp' },
   { key: 'hihat', label: 'Hihat' },
+  { key: 'drums', label: 'Drums' },
   { key: 'rain', label: 'Rain' },
 ];
 

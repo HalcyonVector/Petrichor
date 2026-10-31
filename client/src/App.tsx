@@ -38,7 +38,7 @@ const DEFAULT_SIM: SimState = {
   weatherCode: 0,
 };
 
-const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, rain: 1 };
+const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
 
 export default function App() {
   const engineRef = useRef<AudioEngine | null>(null);

@@ -47,6 +47,8 @@ export function StatusPanel({ inputs, params, isManual }: StatusPanelProps) {
           <dd>{fmt(params.arpDensity * 100, 0)}%</dd>
           <dt>Hihat density</dt>
           <dd>{fmt(params.hihatDensity * 100, 0)}%</dd>
+          <dt>Drum groove</dt>
+          <dd>{params.drumDensity === undefined ? 'default' : `${fmt(params.drumDensity * 100, 0)}%`}</dd>
           <dt>Rain layer</dt>
           <dd>{fmt(params.rainAmount * 100, 0)}%</dd>
           <dt>Wind modulation</dt>
