@@ -50,6 +50,8 @@ const RAIN_BASE_GAIN = 0.18;
 export class AudioEngine {
   private params: AmbientParams = DEFAULT_PARAMS;
   private started = false;
+  private focus = false;
+  private fadeTimer?: ReturnType<typeof setTimeout>;
   private chordDegree = 0;
   // The key and mode actually sounding right now. Live params can change at
   // any moment (a mode threshold crossed, midnight's key change), but these
@@ -187,6 +189,7 @@ export class AudioEngine {
   async start() {
     this.build();
     if (this.started) return;
+    this.cancelFade();
     await Tone.start();
     this.scheduleLoops();
     Tone.Transport.start();
@@ -194,6 +197,7 @@ export class AudioEngine {
   }
 
   stop() {
+    this.cancelFade();
     if (!this.started) return;
     Tone.Transport.stop();
     this.padLoop?.dispose();
@@ -213,7 +217,8 @@ export class AudioEngine {
   }
 
   setMasterVolume(linear01: number) {
-    if (!this.built) return;
+    // A sleep-timer fade owns the master level until it finishes.
+    if (!this.built || this.fadeTimer !== undefined) return;
     const clamped = Math.max(0, Math.min(1, linear01));
     this.master.gain.rampTo(clamped, 0.2);
   }
@@ -264,9 +269,43 @@ export class AudioEngine {
     return this.recordingDestination.stream;
   }
 
+  /**
+   * Focus mode: calmer harmony (I/IV/vi only, chords held longer) and no
+   * thunder. The parameter side of focus mode (quieter arp and drums) is
+   * applied upstream by mapping/focusMode.ts.
+   */
+  setFocusMode(focus: boolean) {
+    this.focus = focus;
+  }
+
+  /**
+   * Fades the master out over `seconds`, resolving once it's silent so the
+   * caller can stop playback. Starting or stopping playback cancels a fade in
+   * progress (and the promise then never resolves, so a stale fade can't stop
+   * a new session).
+   */
+  fadeOut(seconds: number): Promise<void> {
+    if (!this.built || !this.started) return Promise.resolve();
+    this.cancelFade();
+    const duration = Math.max(0.1, seconds);
+    this.master.gain.cancelScheduledValues(Tone.now());
+    this.master.gain.rampTo(0, duration);
+    return new Promise((resolve) => {
+      this.fadeTimer = setTimeout(() => {
+        this.fadeTimer = undefined;
+        resolve();
+      }, duration * 1000);
+    });
+  }
+
+  private cancelFade() {
+    if (this.fadeTimer !== undefined) clearTimeout(this.fadeTimer);
+    this.fadeTimer = undefined;
+  }
+
   /** A one-off rumble for a lightning strike during a thunderstorm — not part of the continuous mix. */
   triggerThunder() {
-    if (!this.built || !this.started) return;
+    if (!this.built || !this.started || this.focus) return;
     const now = Tone.now();
     this.thunderFilter.frequency.cancelScheduledValues(now);
     this.thunderFilter.frequency.setValueAtTime(500, now);
@@ -352,7 +391,10 @@ export class AudioEngine {
       // A new key or mode lands on its tonic chord, so the change is heard
       // as arriving somewhere rather than as a wrong note.
       const harmonyChanged = this.latchHarmony();
-      this.chordDegree = harmonyChanged ? 0 : nextChordDegree(this.chordDegree);
+      // Focus mode also holds each chord for twice as long on average.
+      const holdChord = this.focus && !harmonyChanged && Math.random() < 0.5;
+      if (harmonyChanged) this.chordDegree = 0;
+      else if (!holdChord) this.chordDegree = nextChordDegree(this.chordDegree, Math.random, this.focus);
       const root = this.harmonyRoot;
       const scale = this.harmonyScale;
       const chordSize = Math.max(3, Math.min(6, Math.round(this.params.padVoices)));

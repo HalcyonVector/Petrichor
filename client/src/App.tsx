@@ -7,6 +7,9 @@ import { useRecorder } from './inputs/useRecorder';
 import { useWakeLock } from './inputs/useWakeLock';
 import { useLightning } from './inputs/useLightning';
 import { useMediaSession } from './inputs/useMediaSession';
+import { useSleepTimer } from './inputs/useSleepTimer';
+import { applyFocusMode } from './mapping/focusMode';
+import { SLEEP_FADE_MS, formatCountdown } from './lib/sleepTimer';
 import { mapInputsToParams } from './mapping/parameterMapping';
 import { dayOfYear } from './lib/localHour';
 import { keyName } from './audio/musicTheory';
@@ -16,8 +19,8 @@ import type { PresetSource } from './lib/presetsStore';
 import { buildShareUrl, readShareParamsFromLocation } from './lib/shareLink';
 import { copyToClipboard } from './lib/clipboard';
 import {
-  hasSeenOnboarding, loadStoredLocation, loadStoredMix, loadStoredVolume, markOnboardingSeen,
-  saveStoredLocation, saveStoredMix, saveStoredVolume,
+  hasSeenOnboarding, loadStoredFocus, loadStoredLocation, loadStoredMix, loadStoredVolume, markOnboardingSeen,
+  saveStoredFocus, saveStoredLocation, saveStoredMix, saveStoredVolume,
   type StoredLocation,
 } from './lib/localSettings';
 import { SkyScene } from './components/SkyScene';
@@ -63,6 +66,8 @@ export default function App() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [locationOverride, setLocationOverride] = useState<StoredLocation | null>(() => loadStoredLocation());
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
+  const [focus, setFocus] = useState(() => loadStoredFocus());
+  const [fading, setFading] = useState(false);
 
   const dismissOnboarding = () => {
     setShowOnboarding(false);
@@ -133,6 +138,18 @@ export default function App() {
   );
   const liveParams = useMemo(() => mapInputsToParams(inputs), [inputs]);
   const effectiveParams = manualParams ?? liveParams;
+  // What the engine actually plays. Presets and share links keep the
+  // un-focused sound, so focus mode stays a listening preference rather than
+  // something baked into a saved sound.
+  const playedParams = useMemo(
+    () => (focus ? applyFocusMode(effectiveParams) : effectiveParams),
+    [focus, effectiveParams],
+  );
+
+  useEffect(() => {
+    engineRef.current?.setFocusMode(focus);
+    saveStoredFocus(focus);
+  }, [focus]);
 
   const lightningTrigger = useLightning(isThunderstorm(inputs.weather?.weatherCode));
   useEffect(() => {
@@ -144,8 +161,8 @@ export default function App() {
   const recorder = useRecorder(getRecordingStream);
 
   useEffect(() => {
-    engineRef.current?.updateParams(effectiveParams);
-  }, [effectiveParams]);
+    engineRef.current?.updateParams(playedParams);
+  }, [playedParams]);
 
   useEffect(() => {
     engineRef.current?.setMasterVolume(volume);
@@ -170,8 +187,9 @@ export default function App() {
     const engine = engineRef.current;
     if (!engine) return;
     await engine.start();
+    setFading(false);
     engine.setMasterVolume(volume);
-    engine.updateParams(effectiveParams);
+    engine.updateParams(playedParams);
     Object.entries(mix).forEach(([layer, level]) => engine.setLayerMix(layer as MixLayer, level));
     setStarted(true);
     if (showOnboarding) dismissOnboarding();
@@ -181,6 +199,7 @@ export default function App() {
     if (recorder.isRecording) recorder.stop();
     engineRef.current?.stop();
     setStarted(false);
+    setFading(false);
   };
 
   // Refs so the Space-bar listener below always calls the freshest
@@ -190,6 +209,16 @@ export default function App() {
   const handleStopRef = useRef(handleStop);
   handleStartRef.current = handleStart;
   handleStopRef.current = handleStop;
+
+  const sleepTimer = useSleepTimer(started, SLEEP_FADE_MS, (remainingMs) => {
+    setFading(true);
+    engineRef.current?.fadeOut(remainingMs / 1000).then(() => handleStopRef.current());
+  });
+  const sleepLabel = fading
+    ? 'FADING OUT'
+    : sleepTimer.endsAt !== null
+      ? `SLEEP ${formatCountdown(sleepTimer.remainingMs)}`
+      : null;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -204,10 +233,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [started]);
 
-  const scaleLabel = `${keyName(effectiveParams.rootNote)} ${effectiveParams.scaleMode}`;
+  const scaleLabel = `${keyName(playedParams.rootNote)} ${playedParams.scaleMode}`;
   useMediaSession(
     started,
-    { title: `${scaleLabel} · ${Math.round(effectiveParams.tempo)} BPM`, artist: 'Petrichor' },
+    { title: `${scaleLabel} · ${Math.round(playedParams.tempo)} BPM`, artist: 'Petrichor' },
     handleStart,
     handleStop,
   );
@@ -272,8 +301,10 @@ export default function App() {
           <NowPlayingTray
             hour={inputs.hour}
             weather={inputs.weather}
-            params={effectiveParams}
+            params={playedParams}
             isManual={manualParams !== null}
+            focus={focus}
+            sleepLabel={sleepLabel}
             analyser={engineRef.current.getAnalyser()}
             started={started}
             onStart={handleStart}
@@ -327,9 +358,17 @@ export default function App() {
             locationLabel={locationOverride?.label ?? null}
             onSelectLocation={handleSelectLocation}
             onClearLocation={handleClearLocation}
+            started={started}
+            focus={focus}
+            onFocusChange={setFocus}
+            sleepEndsAt={sleepTimer.endsAt}
+            sleepMinutes={sleepTimer.minutes}
+            sleepRemainingMs={sleepTimer.remainingMs}
+            fading={fading}
+            onSetSleep={sleepTimer.set}
           />
 
-          <StatusPanel inputs={inputs} params={effectiveParams} isManual={manualParams !== null} />
+          <StatusPanel inputs={inputs} params={playedParams} isManual={manualParams !== null} />
 
           <p className="drawer-footnote">
             Synthesis engine built on Tone.js oscillators, filters, and envelopes (no samples). Weather via

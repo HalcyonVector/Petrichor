@@ -4,6 +4,7 @@ import {
   loadStoredMix, saveStoredMix,
   loadStoredLocation, saveStoredLocation,
   hasSeenOnboarding, markOnboardingSeen,
+  loadStoredFocus, saveStoredFocus,
 } from './localSettings';
 import type { MixLayer } from '../audio/AudioEngine';
 
@@ -95,5 +96,15 @@ describe('onboarding flag', () => {
   it('stays seen once marked', () => {
     markOnboardingSeen();
     expect(hasSeenOnboarding()).toBe(true);
+  });
+});
+
+describe('focus mode persistence', () => {
+  it('defaults to off and round-trips', () => {
+    expect(loadStoredFocus()).toBe(false);
+    saveStoredFocus(true);
+    expect(loadStoredFocus()).toBe(true);
+    saveStoredFocus(false);
+    expect(loadStoredFocus()).toBe(false);
   });
 });

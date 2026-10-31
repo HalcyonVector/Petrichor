@@ -1030,3 +1030,52 @@ input[type="text"] {
   max-width: 360px;
   margin: 0 0 8px;
 }
+
+/* Session card: focus mode + sleep timer */
+.session-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.session-row + .session-row {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.session-label {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.session-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.sleep-options .segmented-btn {
+  padding: 6px 11px;
+}
+
+.segmented-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented-btn:disabled:hover:not(.segmented-btn--active) {
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+/* The generic button:hover rule outranks .segmented-btn--active, which turned
+   a selected segment grey while hovered. Keep the selected state brass. */
+.segmented-btn--active:hover:not(:disabled) {
+  background: var(--brass);
+  color: #1a1206;
+}
