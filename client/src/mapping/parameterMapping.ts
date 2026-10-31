@@ -1,5 +1,6 @@
 import type { AmbientParams, LiveInputs, ScaleName } from '../types';
 import { rainIntensity } from '../lib/weatherIntensity';
+import { keyRootForDay } from '../audio/musicTheory';
 
 function clamp(v: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, v));
@@ -39,7 +40,7 @@ const FALLBACK_WEATHER = {
  * makes the mapping easy to reason about (and to simulate in the UI).
  */
 export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
-  const { hour, weather, activity } = inputs;
+  const { hour, weather, activity, dayOfYear } = inputs;
   const night = nightness(hour);
 
   const temperatureC = weather?.temperatureC ?? FALLBACK_WEATHER.temperatureC;
@@ -69,7 +70,7 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   return {
     tempo,
     scaleMode: pickScaleMode(hour, night),
-    rootNote: 48,
+    rootNote: dayOfYear === undefined ? 48 : keyRootForDay(dayOfYear),
     octaveShift,
     brightness,
     padVoices,

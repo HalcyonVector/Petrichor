@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
-import { buildChord, midiToNoteName, randomWalkDegree, scaleDegreeToMidi } from './musicTheory';
+import { buildChord, midiToNoteName, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
+import type { ScaleName } from '../types';
 import type { AmbientParams } from '../types';
 
 const DEFAULT_PARAMS: AmbientParams = {
@@ -41,6 +42,12 @@ export class AudioEngine {
   private params: AmbientParams = DEFAULT_PARAMS;
   private started = false;
   private chordDegree = 0;
+  // The key and mode actually sounding right now. Live params can change at
+  // any moment (a mode threshold crossed, midnight's key change), but these
+  // only catch up at the next chord change, so the harmony never shifts in
+  // the middle of a phrase and the arp always agrees with the pad.
+  private harmonyScale: ScaleName = DEFAULT_PARAMS.scaleMode;
+  private harmonyRoot = DEFAULT_PARAMS.rootNote + DEFAULT_PARAMS.octaveShift * 12;
   private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, rain: 1 };
 
   private master!: Tone.Gain;
@@ -244,7 +251,11 @@ export class AudioEngine {
     this.reverb.wet.rampTo(next.reverbWet, 2);
 
     const detuneSpread = 8 + (1 - next.warmth) * 35; // colder => more detuned/dissonant spread
-    this.padSynth.set({ oscillator: { spread: detuneSpread } });
+    // Warmer weather swells in more slowly; cold weather is crisper.
+    const padAttack = 2.5 + next.warmth * 3;
+    this.padSynth.set({ oscillator: { spread: detuneSpread }, envelope: { attack: padAttack } });
+    // Cold makes the plucks glassy and bright, warmth makes them rounder.
+    this.arpSynth.dampening = 1800 + (1 - next.warmth) * 3400;
 
     this.applyHihatVolume();
   }
@@ -274,31 +285,46 @@ export class AudioEngine {
     this.rainGain.gain.rampTo(this.params.rainAmount * RAIN_BASE_GAIN * this.mixLevels.rain, 2);
   }
 
-  private currentRoot() {
+  private targetRoot() {
     return this.params.rootNote + this.params.octaveShift * 12;
+  }
+
+  /** Brings the sounding key/mode up to date. Called only on chord changes. */
+  private latchHarmony(): boolean {
+    const root = this.targetRoot();
+    const changed = root !== this.harmonyRoot || this.params.scaleMode !== this.harmonyScale;
+    this.harmonyRoot = root;
+    this.harmonyScale = this.params.scaleMode;
+    return changed;
   }
 
   private scheduleLoops() {
     this.padLoop = new Tone.Loop((time) => {
-      this.chordDegree = randomWalkDegree(this.chordDegree);
-      const root = this.currentRoot();
+      // A new key or mode lands on its tonic chord, so the change is heard
+      // as arriving somewhere rather than as a wrong note.
+      const harmonyChanged = this.latchHarmony();
+      this.chordDegree = harmonyChanged ? 0 : nextChordDegree(this.chordDegree);
+      const root = this.harmonyRoot;
+      const scale = this.harmonyScale;
       const chordSize = Math.max(3, Math.min(6, Math.round(this.params.padVoices)));
-      const chord = buildChord(root, this.params.scaleMode, this.chordDegree, chordSize);
+      const chord = buildChord(root, scale, this.chordDegree, chordSize);
       const notes = chord.map(midiToNoteName);
       this.padSynth.triggerAttackRelease(notes, '2m', time);
 
       if (Math.random() < 0.65) {
-        const bassNote = midiToNoteName(root - 12);
+        // The bass follows the chord's own root, which is what makes the
+        // progression readable underneath the pad.
+        const bassNote = midiToNoteName(scaleDegreeToMidi(root - 12, scale, this.chordDegree));
         this.bassSynth.triggerAttackRelease(bassNote, '1m', time);
       }
     }, '2m').start(0);
 
     this.arpLoop = new Tone.Loop((time) => {
       if (Math.random() > this.params.arpDensity) return;
-      const root = this.currentRoot() + 12;
+      const root = this.harmonyRoot + 12;
       const offsets = [0, 2, 4, 6];
       const degree = this.chordDegree + offsets[Math.floor(Math.random() * offsets.length)];
-      const midi = scaleDegreeToMidi(root, this.params.scaleMode, degree);
+      const midi = scaleDegreeToMidi(root, this.harmonyScale, degree);
       this.arpSynth.triggerAttackRelease(midiToNoteName(midi), '8n', time);
     }, '8n').start(0);
 

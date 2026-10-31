@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hourFromUtcOffset } from './localHour';
+import { dayOfYear, hourFromUtcOffset } from './localHour';
 
 describe('hourFromUtcOffset', () => {
   it('matches UTC hour exactly at zero offset', () => {
@@ -26,5 +26,25 @@ describe('hourFromUtcOffset', () => {
         expect(hour).toBeLessThan(24);
       }
     }
+  });
+});
+
+describe('dayOfYear', () => {
+  it('is 0 on 1 January and 364 on 31 December (non-leap year)', () => {
+    expect(dayOfYear(Date.UTC(2026, 0, 1, 12), 0)).toBe(0);
+    expect(dayOfYear(Date.UTC(2026, 11, 31, 12), 0)).toBe(364);
+  });
+
+  it('counts the leap day', () => {
+    expect(dayOfYear(Date.UTC(2028, 11, 31, 12), 0)).toBe(365);
+  });
+
+  it("uses the location's own date when given a UTC offset", () => {
+    // 23:00 UTC on 1 Jan is already 2 Jan in Tokyo (+9h).
+    const now = Date.UTC(2026, 0, 1, 23);
+    expect(dayOfYear(now, 0)).toBe(0);
+    expect(dayOfYear(now, 9 * 3600)).toBe(1);
+    // ...and still 31 Dec of the previous year in Honolulu (-10h) at 05:00 UTC on 1 Jan.
+    expect(dayOfYear(Date.UTC(2026, 0, 1, 5), -10 * 3600)).toBe(364);
   });
 });
