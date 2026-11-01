@@ -9,6 +9,7 @@
   --glass-border: rgba(255, 255, 255, 0.1);
   --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* This app renders one deliberate visual world — a real sky — so it
@@ -1753,4 +1754,203 @@ input[type="text"] {
 .app--lowpower .sky-particles,
 .app--lowpower .sky-ripple {
   display: none;
+}
+
+/* ============ Studio: one type system and steadier layout ============
+   Sans for every control, label and value; small spaced capitals only for
+   section headings; the serif only for the "Studio" title. Scoped to the
+   Studio so the tray keeps its instrument-style mono readout. */
+
+.drawer {
+  font-size: 14px;
+}
+
+.drawer .drawer-close,
+.drawer .studio-tab,
+.drawer .preset-save-row input[type="text"],
+.drawer .preset-save-row button,
+.drawer .share-link-btn,
+.drawer .record-status,
+.drawer .sim-sliders label span,
+.drawer .mixer-sliders label span,
+.drawer .sim-sliders label b,
+.drawer .mixer-sliders label b,
+.drawer .status-panel dt {
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.drawer .hud-card > h3 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin-bottom: 14px;
+}
+
+.drawer .drawer-close {
+  /* Its header row uses the serif for the title; the button shouldn't. */
+  font-family: var(--font-ui);
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.drawer .studio-tab {
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 9px 10px;
+}
+
+.drawer .studio-tab--active {
+  font-weight: 600;
+}
+
+/* Inputs and their pill buttons */
+.drawer .preset-save-row input[type="text"] {
+  font-size: 14px;
+}
+
+.drawer .preset-save-row button {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+}
+
+.drawer .share-link-btn {
+  font-size: 13px;
+  padding: 10px 14px;
+}
+
+/* Sliders: sentence-case labels, tabular values */
+.drawer .sim-sliders label span,
+.drawer .mixer-sliders label span {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+
+.drawer .sim-sliders label b,
+.drawer .mixer-sliders label b {
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live status: a quiet line instead of a dashed box */
+.drawer .live-status {
+  margin-top: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+}
+
+/* Location */
+.drawer .location-hint {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.drawer .location-active {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.drawer .location-results {
+  margin-top: 12px;
+  gap: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.drawer .location-results li + li {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.drawer .location-result-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.drawer .location-result-btn:hover:not(:disabled),
+.drawer .location-result-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.location-result-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.location-result-detail {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
+/* Readout: label column aligned to the values' baseline */
+.drawer .status-panel dl {
+  grid-template-columns: 112px 1fr;
+  gap: 9px 14px;
+  align-items: baseline;
+  font-size: 13.5px;
+}
+
+.drawer .status-panel dt {
+  font-size: 12.5px;
+  padding-top: 0;
+  color: var(--ink-faint);
+}
+
+.drawer .status-panel dd {
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+/* Record */
+.drawer .record-explainer {
+  max-width: none;
+  font-size: 13.5px;
+}
+
+.drawer .record-status {
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.drawer .record-btn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-faint);
+}
+
+.drawer .record-btn:disabled svg {
+  color: var(--ink-faint);
+}
+
+/* Layout: Sound shows its two cards side by side as grid items; on Source
+   the controls and the readout are two independent columns, so a card
+   growing (search results) never stretches or shifts the other side. */
+.studio-panel > .control-panel--source,
+.studio-panel > .status-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.studio-panel {
+  align-items: start;
 }

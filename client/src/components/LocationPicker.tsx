@@ -78,8 +78,9 @@ export function LocationPicker({ locationLabel, onSelect, onClear }: LocationPic
         <ul className="location-results">
           {results.map((city, i) => (
             <li key={i}>
-              <button className="ghost location-result-btn" onClick={() => handlePick(city)}>
-                {formatCityLabel(city)}
+              <button className="location-result-btn" onClick={() => handlePick(city)}>
+                <span className="location-result-name">{city.name}</span>
+                <span className="location-result-detail">{[city.admin1, city.country].filter(Boolean).join(', ')}</span>
               </button>
             </li>
           ))}
