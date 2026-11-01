@@ -97,3 +97,25 @@ describe('drum groove density', () => {
     expect(idle.drumDensity!).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('moonlight', () => {
+  it('brightens a clear night under a full moon and darkens it under a new moon', () => {
+    const clearNight = { hour: 2, weather: weather({ cloudCoverPct: 0 }) };
+    const full = mapInputsToParams(inputs({ ...clearNight, moonPhase: 0.5 }));
+    const none = mapInputsToParams(inputs({ ...clearNight, moonPhase: 0 }));
+    const unset = mapInputsToParams(inputs(clearNight));
+    expect(full.brightness).toBeGreaterThan(unset.brightness);
+    expect(none.brightness).toBeLessThanOrEqual(unset.brightness);
+  });
+
+  it('has no effect under full cloud or at midday', () => {
+    const overcast = { hour: 2, weather: weather({ cloudCoverPct: 100 }) };
+    expect(mapInputsToParams(inputs({ ...overcast, moonPhase: 0.5 })).brightness).toBeCloseTo(
+      mapInputsToParams(inputs(overcast)).brightness,
+    );
+    expect(mapInputsToParams(inputs({ hour: 14, moonPhase: 0.5 })).brightness).toBeCloseTo(
+      mapInputsToParams(inputs({ hour: 14 })).brightness,
+      2,
+    );
+  });
+});

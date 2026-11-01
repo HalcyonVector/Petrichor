@@ -85,7 +85,21 @@
 .sky-body--moon {
   width: 48px;
   height: 48px;
-  background: radial-gradient(circle at 35% 32%, #fbf3dd, #e9d9ac 60%, #cdb27f 100%);
+  background: transparent;
+}
+
+/* The moon is drawn at its real phase (lib/moon.ts): the lit part over a
+   faint earthshine disc, so the dark side still reads as a moon. */
+.sky-moon {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sky-moon-earthshine {
+  fill: rgba(190, 200, 225, 0.12);
 }
 
 .sky-rain {

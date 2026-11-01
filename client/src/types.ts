@@ -46,6 +46,8 @@ export interface LiveInputs {
   activity: ActivitySnapshot;
   /** 0 = 1 January. Picks the day's key; omitted means C. */
   dayOfYear?: number;
+  /** 0..1 position in the lunar cycle (0 new, 0.5 full). Omitted means no moon influence. */
+  moonPhase?: number;
 }
 
 export interface Preset {

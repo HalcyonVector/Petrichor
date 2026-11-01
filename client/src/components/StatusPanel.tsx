@@ -1,6 +1,7 @@
 import type { AmbientParams, LiveInputs } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { keyName } from '../audio/musicTheory';
+import { moonIllumination, moonPhaseName } from '../lib/moon';
 
 interface StatusPanelProps {
   inputs: LiveInputs;
@@ -31,6 +32,14 @@ export function StatusPanel({ inputs, weatherOffline = false, params, isManual }
                 ? 'unavailable right now, retrying. Playing with typical mild weather meanwhile.'
                 : 'loading…'}
           </dd>
+          {inputs.moonPhase !== undefined && (
+            <>
+              <dt>Moon</dt>
+              <dd>
+                {moonPhaseName(inputs.moonPhase)} · {fmt(moonIllumination(inputs.moonPhase) * 100, 0)}% lit
+              </dd>
+            </>
+          )}
           <dt>Activity</dt>
           <dd>{fmt(activity.activity * 100, 0)}% · typing {fmt(activity.typingRate * 100, 0)}%{activity.idle ? ' · idle tab' : ''}</dd>
         </dl>

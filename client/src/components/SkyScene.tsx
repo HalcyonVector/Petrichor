@@ -1,6 +1,7 @@
 import { useMemo, useRef, type CSSProperties } from 'react';
 import { useSkyReactions, type EngineSubscribe } from '../sky/useSkyReactions';
 import { auroraAmount, fogAmount, rippleCount } from '../sky/sceneMath';
+import { moonIllumination, moonLitPath } from '../lib/moon';
 import { nightness } from '../mapping/parameterMapping';
 import { rainIntensity } from '../lib/weatherIntensity';
 import { isSnowing } from '../lib/weatherCode';
@@ -19,6 +20,8 @@ interface SkyProps {
   weather: WeatherSnapshot | null;
   /** Increments on each lightning strike; 0 means "none yet". See useLightning. */
   lightningTrigger?: number;
+  /** 0..1 lunar cycle position; the moon is drawn at this phase. */
+  moonPhase?: number;
   /** Engine event subscription, so the sky can react to kicks, notes and chords. */
   subscribe?: EngineSubscribe;
 }
@@ -106,7 +109,7 @@ function horizonPolygonPoints(heights: number[]): string {
  * sun/moon position, star density, and rain all move because the inputs
  * moved, the same way the sound does.
  */
-export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: SkyProps) {
+export function SkyScene({ hour, weather, lightningTrigger = 0, moonPhase = 0.5, subscribe }: SkyProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const starsRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<HTMLDivElement>(null);
@@ -129,6 +132,8 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: Sky
   const rain = rainIntensity(precipitationMm);
   const horizonColor = horizonSilhouetteColor(night);
   const duskGlow = horizonGlowIntensity(body, pos.arc);
+  // A thin crescent gives off far less light than a full moon.
+  const moonLight = body === 'moon' ? 0.25 + 0.75 * moonIllumination(moonPhase) : 1;
 
   const snowing = isSnowing(weather?.weatherCode);
   const fog = fogAmount(cloudCoverPct, weather?.weatherCode);
@@ -224,11 +229,24 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, subscribe }: Sky
           left: `${pos.xPct}%`,
           top: `${pos.yPct}%`,
           opacity: 0.5 + pos.glow * 0.5,
-          boxShadow: `0 0 ${20 + pos.glow * 50}px ${6 + pos.glow * 14}px ${
-            body === 'sun' ? 'rgba(255, 220, 150, 0.35)' : 'rgba(233, 217, 172, 0.28)'
+          boxShadow: `0 0 ${(20 + pos.glow * 50) * moonLight}px ${(6 + pos.glow * 14) * moonLight}px ${
+            body === 'sun' ? 'rgba(255, 220, 150, 0.35)' : `rgba(233, 217, 172, ${(0.28 * moonLight).toFixed(3)})`
           }`,
         }}
       >
+        {body === 'moon' && (
+          <svg className="sky-moon" viewBox="-1 -1 2 2" aria-hidden="true">
+            <defs>
+              <radialGradient id="sky-moon-lit" cx="35%" cy="32%" r="75%">
+                <stop offset="0%" stopColor="#fbf3dd" />
+                <stop offset="60%" stopColor="#e9d9ac" />
+                <stop offset="100%" stopColor="#cdb27f" />
+              </radialGradient>
+            </defs>
+            <circle r="1" className="sky-moon-earthshine" />
+            <path d={moonLitPath(moonPhase)} fill="url(#sky-moon-lit)" />
+          </svg>
+        )}
         <span className="sky-body-pulse" />
       </div>
 

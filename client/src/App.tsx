@@ -12,6 +12,7 @@ import { applyFocusMode } from './mapping/focusMode';
 import { SLEEP_FADE_MS, formatCountdown } from './lib/sleepTimer';
 import { mapInputsToParams } from './mapping/parameterMapping';
 import { dayOfYear } from './lib/localHour';
+import { moonPhase } from './lib/moon';
 import { formatElapsed } from './lib/formatTime';
 import { keyName } from './audio/musicTheory';
 import { isThunderstorm } from './lib/weatherCode';
@@ -197,7 +198,13 @@ export default function App() {
   // (at the picked location's midnight when a location override is active).
   const utcOffset = !simulate ? weather?.utcOffsetSeconds ?? null : null;
   const inputs: LiveInputs = useMemo(
-    () => ({ hour: liveHour, weather, activity, dayOfYear: dayOfYear(Date.now(), utcOffset) }),
+    () => ({
+      hour: liveHour,
+      weather,
+      activity,
+      dayOfYear: dayOfYear(Date.now(), utcOffset),
+      moonPhase: moonPhase(Date.now()),
+    }),
     [liveHour, weather, activity, utcOffset],
   );
   const liveParams = useMemo(() => mapInputsToParams(inputs), [inputs]);
@@ -387,6 +394,7 @@ export default function App() {
       <div ref={mainRegionRef}>
         <SkyScene
           hour={inputs.hour}
+          moonPhase={inputs.moonPhase}
           weather={inputs.weather}
           lightningTrigger={lightningTrigger}
           subscribe={subscribeEngine}

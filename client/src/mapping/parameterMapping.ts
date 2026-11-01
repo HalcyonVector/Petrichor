@@ -1,6 +1,7 @@
 import type { AmbientParams, LiveInputs, ScaleName } from '../types';
 import { rainIntensity } from '../lib/weatherIntensity';
 import { keyRootForDay } from '../audio/musicTheory';
+import { moonIllumination } from '../lib/moon';
 
 function clamp(v: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, v));
@@ -40,7 +41,7 @@ const FALLBACK_WEATHER = {
  * makes the mapping easy to reason about (and to simulate in the UI).
  */
 export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
-  const { hour, weather, activity, dayOfYear } = inputs;
+  const { hour, weather, activity, dayOfYear, moonPhase } = inputs;
   const night = nightness(hour);
 
   const temperatureC = weather?.temperatureC ?? FALLBACK_WEATHER.temperatureC;
@@ -53,7 +54,11 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   const octaveShift = night > 0.65 ? -1 : night < 0.25 ? 1 : 0;
 
   const brightnessFromTime = 1 - night;
-  const brightness = clamp(brightnessFromTime - (cloudCoverPct / 100) * 0.45);
+  // Moonlight: at night a full moon lifts the tone a little, a new moon
+  // darkens it, both fading out as cloud hides the sky.
+  const moonlight =
+    moonPhase === undefined ? 0 : night * (moonIllumination(moonPhase) - 0.5) * 0.14 * (1 - cloudCoverPct / 100);
+  const brightness = clamp(brightnessFromTime - (cloudCoverPct / 100) * 0.45 + moonlight);
 
   const warmth = clamp(0.3 + (temperatureC - 5) / 40);
   const padVoices = 3 + Math.round(warmth * 2.5);
