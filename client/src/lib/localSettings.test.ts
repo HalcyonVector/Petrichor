@@ -8,7 +8,7 @@ import {
 } from './localSettings';
 import type { MixLayer } from '../audio/AudioEngine';
 
-const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1 };
+const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1, nature: 1 };
 
 beforeEach(() => {
   localStorage.clear();
@@ -41,7 +41,7 @@ describe('mix persistence', () => {
   });
 
   it('round-trips a saved mix', () => {
-    const custom: Record<MixLayer, number> = { pad: 0.5, bass: 1.2, arp: 0, melody: 0.7, hihat: 0.8, drums: 0.6, rain: 1.5 };
+    const custom: Record<MixLayer, number> = { pad: 0.5, bass: 1.2, arp: 0, melody: 0.7, hihat: 0.8, drums: 0.6, rain: 1.5, nature: 0.4 };
     saveStoredMix(custom);
     expect(loadStoredMix(DEFAULT_MIX)).toEqual(custom);
   });

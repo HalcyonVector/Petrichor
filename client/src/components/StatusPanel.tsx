@@ -61,6 +61,17 @@ export function StatusPanel({ inputs, weatherOffline = false, params, isManual }
           <dd>{fmt(params.hihatDensity * 100, 0)}%</dd>
           <dt>Drum groove</dt>
           <dd>{params.drumDensity === undefined ? 'default' : `${fmt(params.drumDensity * 100, 0)}%`}</dd>
+          <dt>Nature</dt>
+          <dd>
+            {[
+              params.crickets ? `crickets ${fmt(params.crickets * 100, 0)}%` : null,
+              params.birds ? `birds ${fmt(params.birds * 100, 0)}%` : null,
+              params.snowShimmer ? `snow ${fmt(params.snowShimmer * 100, 0)}%` : null,
+              params.windModulation > 0.12 ? `wind gusts ${fmt(params.windModulation * 100, 0)}%` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'quiet'}
+          </dd>
           <dt>Rain layer</dt>
           <dd>{fmt(params.rainAmount * 100, 0)}%</dd>
           <dt>Wind modulation</dt>

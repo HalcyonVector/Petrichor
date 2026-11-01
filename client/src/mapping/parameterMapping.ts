@@ -2,6 +2,7 @@ import type { AmbientParams, LiveInputs, ScaleName } from '../types';
 import { rainIntensity } from '../lib/weatherIntensity';
 import { keyRootForDay } from '../audio/musicTheory';
 import { moonIllumination } from '../lib/moon';
+import { isSnowing } from '../lib/weatherCode';
 
 function clamp(v: number, min = 0, max = 1): number {
   return Math.max(min, Math.min(max, v));
@@ -71,6 +72,17 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   // rain texture can come forward.
   const drumDensity = clamp(0.1 + (1 - night) * 0.35 + activity.activity * 0.25 - rainAmount * 0.1);
 
+  // Nature: crickets on warm, dry nights; birds around dawn (and a few at
+  // dusk), quieter in rain and absent in hard frost; a bell-like shimmer
+  // while it snows.
+  const weatherCode = weather?.weatherCode ?? 0;
+  const dry = precipitationMm < 0.05;
+  const crickets = dry && temperatureC >= 15 ? clamp((night - 0.55) / 0.3) * clamp(0.3 + (temperatureC - 15) / 10) : 0;
+  const dawn = Math.max(0, 1 - Math.abs(hour - 6.5) / 2);
+  const dusk = Math.max(0, 1 - Math.abs(hour - 18.5) / 1.5) * 0.4;
+  const birds = temperatureC > -2 ? Math.max(dawn, dusk) * (precipitationMm > 0.5 ? 0.3 : 1) : 0;
+  const snowShimmer = isSnowing(weatherCode) ? clamp(0.4 + rainAmount * 0.6) : 0;
+
   const windModulation = clamp(windSpeedKmh / 40);
 
   const arpDensity = clamp(0.06 + activity.activity * 0.55 + activity.typingRate * 0.25);
@@ -88,6 +100,9 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
     hihatDensity,
     drumDensity,
     rainAmount,
+    crickets,
+    birds,
+    snowShimmer,
     windModulation,
     warmth,
     reverbWet,

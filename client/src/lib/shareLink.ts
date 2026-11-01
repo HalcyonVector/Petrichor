@@ -13,7 +13,10 @@ function isValidParams(value: unknown): value is AmbientParams {
   const p = value as Record<string, unknown>;
   if (!NUMBER_FIELDS.every((key) => typeof p[key] === 'number' && Number.isFinite(p[key] as number))) return false;
   // Optional, newer fields: links made before they existed simply omit them.
-  if (p.drumDensity !== undefined && !(typeof p.drumDensity === 'number' && Number.isFinite(p.drumDensity))) return false;
+  const optional = ['drumDensity', 'crickets', 'birds', 'snowShimmer'];
+  if (!optional.every((key) => p[key] === undefined || (typeof p[key] === 'number' && Number.isFinite(p[key] as number)))) {
+    return false;
+  }
   return typeof p.scaleMode === 'string' && SCALE_MODES.includes(p.scaleMode as ScaleName);
 }
 

@@ -16,6 +16,7 @@ import { moonPhase } from './lib/moon';
 import { formatElapsed } from './lib/formatTime';
 import { keyName } from './audio/musicTheory';
 import { isThunderstorm } from './lib/weatherCode';
+import { pickCelestialBody } from './sky/skyMath';
 import { listPresets, savePreset, deletePreset } from './lib/presetsStore';
 import type { PresetSource } from './lib/presetsStore';
 import { buildShareUrl, readShareParamsFromLocation } from './lib/shareLink';
@@ -53,7 +54,7 @@ const STUDIO_TABS: { key: StudioSection; label: string }[] = [
   { key: 'record', label: 'Record' },
 ];
 
-const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1 };
+const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1, nature: 1 };
 
 export default function App() {
   const engineRef = useRef<AudioEngine | null>(null);
@@ -227,6 +228,17 @@ export default function App() {
     if (lightningTrigger === 0) return;
     engineRef.current?.triggerThunder();
   }, [lightningTrigger]);
+
+  // A swell in the music when the sun actually rises or sets while playing
+  // (also when the Simulate hour is dragged across the horizon).
+  const celestialBody = pickCelestialBody(inputs.hour, inputs.weather?.isDay);
+  const previousBody = useRef(celestialBody);
+  useEffect(() => {
+    if (previousBody.current !== celestialBody && started) {
+      engineRef.current?.triggerHorizonSwell(celestialBody === 'sun' ? 'sunrise' : 'sunset');
+    }
+    previousBody.current = celestialBody;
+  }, [celestialBody, started]);
 
   const getRecordingStream = useCallback(() => engineRef.current?.getRecordingStream() ?? null, []);
   const recorder = useRecorder(getRecordingStream);

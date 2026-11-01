@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 import { drumHitsForStep } from './drumPattern';
 import { generatePhrase } from './melody';
+import { NatureVoices } from './NatureVoices';
 import { buildChord, chordName, midiToNoteName, triadQuality, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
 import type { ScaleName } from '../types';
 import type { AmbientParams } from '../types';
@@ -42,7 +43,7 @@ export type EngineEvent =
 
 export type EngineListener = (event: EngineEvent) => void;
 
-export type MixLayer = 'pad' | 'bass' | 'arp' | 'melody' | 'hihat' | 'drums' | 'rain';
+export type MixLayer = 'pad' | 'bass' | 'arp' | 'melody' | 'hihat' | 'drums' | 'rain' | 'nature';
 
 /** Used for presets and share links saved before the drum layer existed. */
 const FALLBACK_DRUM_DENSITY = 0.3;
@@ -82,7 +83,7 @@ export class AudioEngine {
   // the middle of a phrase and the arp always agrees with the pad.
   private harmonyScale: ScaleName = DEFAULT_PARAMS.scaleMode;
   private harmonyRoot = DEFAULT_PARAMS.rootNote + DEFAULT_PARAMS.octaveShift * 12;
-  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1 };
+  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1, nature: 1 };
 
   private master!: Tone.Gain;
   private limiter!: Tone.Limiter;
@@ -120,6 +121,9 @@ export class AudioEngine {
   private arpLoop?: Tone.Loop;
   private hihatLoop?: Tone.Loop;
   private drumLoop?: Tone.Loop;
+  private nature!: NatureVoices;
+  private natureLoop?: Tone.Loop;
+  private windLoop?: Tone.Loop;
 
   private listeners = new Set<EngineListener>();
 
@@ -222,6 +226,8 @@ export class AudioEngine {
     });
     this.rim.connect(this.rimFilter);
 
+    this.nature = new NatureVoices(this.master, this.reverb);
+
     this.rainFilter = new Tone.Filter({ frequency: 2200, type: 'bandpass', Q: 0.6 });
     this.rainGain = new Tone.Gain(0).connect(this.master);
     this.rainFilter.connect(this.rainGain);
@@ -246,6 +252,7 @@ export class AudioEngine {
     this.applyBassVolume();
     this.applyArpVolume();
     this.applyMelodyVolume();
+    this.nature.setLevel(this.mixLevels.nature);
     this.applyHihatVolume();
     this.applyDrumVolume();
     this.applyRainGain();
@@ -272,7 +279,9 @@ export class AudioEngine {
     this.arpLoop?.dispose();
     this.hihatLoop?.dispose();
     this.drumLoop?.dispose();
-    this.padLoop = this.arpLoop = this.hihatLoop = this.drumLoop = undefined;
+    this.natureLoop?.dispose();
+    this.windLoop?.dispose();
+    this.padLoop = this.arpLoop = this.hihatLoop = this.drumLoop = this.natureLoop = this.windLoop = undefined;
     this.started = false;
   }
 
@@ -321,6 +330,9 @@ export class AudioEngine {
         break;
       case 'rain':
         this.applyRainGain();
+        break;
+      case 'nature':
+        this.nature.setLevel(this.mixLevels.nature);
         break;
     }
   }
@@ -555,6 +567,32 @@ export class AudioEngine {
       }
       if (rim > 0) this.rim.triggerAttackRelease('32n', time, rim);
     }, '16n').start(0);
+
+    // Nature textures: each beat may bring a cricket chirp, a bird call or a
+    // snow bell, in proportion to how much the weather and time call for.
+    this.natureLoop = new Tone.Loop((time) => {
+      const { crickets = 0, birds = 0, snowShimmer = 0 } = this.params;
+      if (crickets > 0 && Math.random() < crickets * 0.45) this.nature.chirp(time + Math.random() * 0.2);
+      if (birds > 0 && Math.random() < birds * 0.3) this.nature.birdCall(time + Math.random() * 0.3);
+      if (snowShimmer > 0 && Math.random() < snowShimmer * 0.3) {
+        const bellRoot = 72 + (((this.harmonyRoot % 12) + 12) % 12);
+        const offset = [0, 2, 4, 7][Math.floor(Math.random() * 4)];
+        this.nature.bellNote(midiToNoteName(scaleDegreeToMidi(bellRoot, this.harmonyScale, this.chordDegree + offset)), time);
+      }
+    }, '4n').start(0);
+
+    this.windLoop = new Tone.Loop((time) => this.nature.windBar(time, this.params.windModulation), '1m').start(0);
+  }
+
+  /**
+   * A slow, wide chord when the sun crosses the horizon: the home chord at
+   * sunrise, the current chord at sunset, an octave above the pads.
+   */
+  triggerHorizonSwell(kind: 'sunrise' | 'sunset') {
+    if (!this.built || !this.started) return;
+    const degree = kind === 'sunrise' ? 0 : this.chordDegree;
+    const notes = buildChord(this.harmonyRoot + 12, this.harmonyScale, degree, 4).map(midiToNoteName);
+    this.nature.swell(notes, Tone.now() + 0.1);
   }
 
   /**
@@ -586,7 +624,7 @@ export class AudioEngine {
     [
       this.master, this.limiter, this.analyser, this.reverb, this.padFilter, this.filterLfo, this.panLfo, this.panner,
       this.padSynth, this.bassSynth, this.arpSynth, this.lead, this.leadVibrato, this.leadFilter, this.leadDelay, this.hihat, this.kick, this.kickFilter, this.rim, this.rimFilter,
-      this.rainNoise, this.rainFilter, this.rainGain,
+      this.rainNoise, this.rainFilter, this.rainGain, this.nature,
       this.thunderSynth, this.thunderFilter,
     ].forEach((node) => node?.dispose());
     this.built = false;

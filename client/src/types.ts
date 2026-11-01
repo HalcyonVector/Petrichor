@@ -13,6 +13,10 @@ export interface AmbientParams {
   /** 0..1, how busy the lo-fi kick/rim groove is. Optional: presets and share links saved before it existed play a soft default groove. */
   drumDensity?: number;
   rainAmount: number; // 0..1, filtered noise "rain" layer level
+  /** 0..1 nature textures. Optional so older presets and share links still load (they just play without them). */
+  crickets?: number; // warm, dry nights
+  birds?: number; // around dawn, a little at dusk
+  snowShimmer?: number; // high bell tones while it snows
   windModulation: number; // 0..1, LFO rate/depth on the filter + panning
   warmth: number; // 0..1, detune/saturation amount, lower = colder/sparser
   reverbWet: number; // 0..1

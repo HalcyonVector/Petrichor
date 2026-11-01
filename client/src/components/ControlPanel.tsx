@@ -33,6 +33,7 @@ const MIX_LAYERS: { key: MixLayer; label: string }[] = [
   { key: 'hihat', label: 'Hihat' },
   { key: 'drums', label: 'Drums' },
   { key: 'rain', label: 'Rain' },
+  { key: 'nature', label: 'Nature' },
 ];
 
 export type StudioSection = 'sound' | 'source' | 'presets' | 'record';
