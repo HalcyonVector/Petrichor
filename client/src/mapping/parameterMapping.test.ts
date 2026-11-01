@@ -145,3 +145,18 @@ describe('nature textures', () => {
     expect(mapInputsToParams(inputs({ weather: weather({ weatherCode: 63, precipitationMm: 1 }) })).snowShimmer).toBe(0);
   });
 });
+
+describe('seasons', () => {
+  it('makes winter slower, darker and wetter than summer, all else equal', () => {
+    const winter = mapInputsToParams(inputs({ winterness: 1 }));
+    const summer = mapInputsToParams(inputs({ winterness: 0 }));
+    expect(winter.tempo).toBeLessThan(summer.tempo);
+    expect(winter.brightness).toBeLessThan(summer.brightness);
+    expect(winter.reverbWet).toBeGreaterThan(summer.reverbWet);
+    expect(winter.arpDensity).toBeLessThanOrEqual(summer.arpDensity);
+  });
+
+  it('is neutral at the equinox (winterness 0.5) and when unknown', () => {
+    expect(mapInputsToParams(inputs({ winterness: 0.5 })).tempo).toBeCloseTo(mapInputsToParams(inputs()).tempo);
+  });
+});

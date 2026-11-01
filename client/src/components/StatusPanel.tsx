@@ -2,6 +2,7 @@ import type { AmbientParams, LiveInputs } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { keyName } from '../audio/musicTheory';
 import { moonIllumination, moonPhaseName } from '../lib/moon';
+import { seasonName } from '../lib/seasons';
 
 interface StatusPanelProps {
   inputs: LiveInputs;
@@ -32,6 +33,15 @@ export function StatusPanel({ inputs, weatherOffline = false, params, isManual }
                 ? 'unavailable right now, retrying. Playing with typical mild weather meanwhile.'
                 : 'loading…'}
           </dd>
+          {inputs.dayOfYear !== undefined && (
+            <>
+              <dt>Season</dt>
+              <dd>
+                {seasonName(inputs.dayOfYear, weather?.lat)}
+                {weather?.lat !== undefined && weather.lat < 0 ? ' (southern hemisphere)' : ''}
+              </dd>
+            </>
+          )}
           {inputs.moonPhase !== undefined && (
             <>
               <dt>Moon</dt>

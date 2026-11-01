@@ -24,6 +24,7 @@ interface WeatherApiResponse {
   isDay: boolean;
   source: 'client' | 'ip' | 'default';
   utcOffsetSeconds?: number;
+  lat?: number;
 }
 
 function getPosition(): Promise<GeolocationPosition | null> {
@@ -86,6 +87,7 @@ export function useWeather(overrideWeather: WeatherSnapshot | null, locationOver
           isDay: data.isDay,
           source: locationOverride || usedGeolocation ? 'client' : data.source,
           utcOffsetSeconds: data.utcOffsetSeconds,
+          lat: typeof data.lat === 'number' ? data.lat : undefined,
         });
         setError(null);
         failures = 0;

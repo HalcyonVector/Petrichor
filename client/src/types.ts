@@ -33,6 +33,8 @@ export interface WeatherSnapshot {
   city?: string | null;
   /** Seconds offset from UTC at the weather location. Used to compute that location's local hour when it's a deliberate override (not wherever the browser happens to be). */
   utcOffsetSeconds?: number;
+  /** Latitude of the weather location, when known (used for the hemisphere's seasons). */
+  lat?: number;
 }
 
 export interface ActivitySnapshot {
@@ -52,6 +54,8 @@ export interface LiveInputs {
   dayOfYear?: number;
   /** 0..1 position in the lunar cycle (0 new, 0.5 full). Omitted means no moon influence. */
   moonPhase?: number;
+  /** 0..1, 1 = midwinter, 0 = midsummer (see lib/seasons.ts). Omitted means no seasonal influence. */
+  winterness?: number;
 }
 
 export interface Preset {

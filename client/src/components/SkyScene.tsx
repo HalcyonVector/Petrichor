@@ -20,6 +20,8 @@ interface SkyProps {
   weather: WeatherSnapshot | null;
   /** Increments on each lightning strike; 0 means "none yet". See useLightning. */
   lightningTrigger?: number;
+  /** 0..1, 1 = midwinter: tints the sky a little cooler in winter, warmer in summer. */
+  winterness?: number;
   /** 0..1 lunar cycle position; the moon is drawn at this phase. */
   moonPhase?: number;
   /** Engine event subscription, so the sky can react to kicks, notes and chords. */
@@ -109,7 +111,7 @@ function horizonPolygonPoints(heights: number[]): string {
  * sun/moon position, star density, and rain all move because the inputs
  * moved, the same way the sound does.
  */
-export function SkyScene({ hour, weather, lightningTrigger = 0, moonPhase = 0.5, subscribe }: SkyProps) {
+export function SkyScene({ hour, weather, lightningTrigger = 0, moonPhase = 0.5, winterness = 0.5, subscribe }: SkyProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const starsRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<HTMLDivElement>(null);
@@ -251,6 +253,12 @@ export function SkyScene({ hour, weather, lightningTrigger = 0, moonPhase = 0.5,
       </div>
 
       <div ref={washRef} className="sky-chord-wash" data-tone="warm" />
+
+      <div
+        className="sky-season"
+        data-season={winterness >= 0.5 ? 'winter' : 'summer'}
+        style={{ opacity: Math.abs(winterness - 0.5) * 2 * 0.18 }}
+      />
 
       {dropCount > 0 && (
         <div className="sky-rain">

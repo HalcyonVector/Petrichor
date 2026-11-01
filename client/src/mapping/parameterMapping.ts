@@ -42,7 +42,7 @@ const FALLBACK_WEATHER = {
  * makes the mapping easy to reason about (and to simulate in the UI).
  */
 export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
-  const { hour, weather, activity, dayOfYear, moonPhase } = inputs;
+  const { hour, weather, activity, dayOfYear, moonPhase, winterness } = inputs;
   const night = nightness(hour);
 
   const temperatureC = weather?.temperatureC ?? FALLBACK_WEATHER.temperatureC;
@@ -50,7 +50,11 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   const cloudCoverPct = weather?.cloudCoverPct ?? FALLBACK_WEATHER.cloudCoverPct;
   const windSpeedKmh = weather?.windSpeedKmh ?? FALLBACK_WEATHER.windSpeedKmh;
 
-  const tempo = lerp(96, 56, night);
+  // Seasons, centered: +0.5 midwinter, -0.5 midsummer. Winter is a touch
+  // slower, darker and more reverberant; summer a touch quicker and busier.
+  const season = winterness === undefined ? 0 : winterness - 0.5;
+
+  const tempo = lerp(96, 56, night) - season * 6;
 
   const octaveShift = night > 0.65 ? -1 : night < 0.25 ? 1 : 0;
 
@@ -59,7 +63,7 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
   // darkens it, both fading out as cloud hides the sky.
   const moonlight =
     moonPhase === undefined ? 0 : night * (moonIllumination(moonPhase) - 0.5) * 0.14 * (1 - cloudCoverPct / 100);
-  const brightness = clamp(brightnessFromTime - (cloudCoverPct / 100) * 0.45 + moonlight);
+  const brightness = clamp(brightnessFromTime - (cloudCoverPct / 100) * 0.45 + moonlight - season * 0.08);
 
   const warmth = clamp(0.3 + (temperatureC - 5) / 40);
   const padVoices = 3 + Math.round(warmth * 2.5);
@@ -85,9 +89,9 @@ export function mapInputsToParams(inputs: LiveInputs): AmbientParams {
 
   const windModulation = clamp(windSpeedKmh / 40);
 
-  const arpDensity = clamp(0.06 + activity.activity * 0.55 + activity.typingRate * 0.25);
+  const arpDensity = clamp(0.06 + activity.activity * 0.55 + activity.typingRate * 0.25 - season * 0.08);
 
-  const reverbWet = lerp(0.22, 0.55, night);
+  const reverbWet = clamp(lerp(0.22, 0.55, night) + season * 0.1);
 
   return {
     tempo,

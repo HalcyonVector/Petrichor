@@ -1701,3 +1701,20 @@ input[type="text"] {
 .studio-panel .drawer-footnote {
   margin: 0;
 }
+
+/* Seasonal tint (lib/seasons.ts): faintly cooler in winter, warmer in summer. */
+.sky-season {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+  transition: opacity 6s ease;
+}
+
+.sky-season[data-season='winter'] {
+  background: linear-gradient(180deg, rgba(150, 185, 235, 1), rgba(200, 215, 240, 1));
+}
+
+.sky-season[data-season='summer'] {
+  background: linear-gradient(180deg, rgba(255, 200, 130, 1), rgba(255, 160, 110, 1));
+}
