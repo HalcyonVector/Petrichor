@@ -118,3 +118,22 @@ export function saveStoredFocus(focus: boolean): void {
     // quota exceeded or storage disabled; focus mode just resets next visit
   }
 }
+
+const LOW_POWER_KEY = 'ambient-weather-engine:lowpower';
+
+export function loadStoredLowPower(): 'auto' | 'on' | 'off' {
+  try {
+    const raw = localStorage.getItem(LOW_POWER_KEY);
+    return raw === 'on' || raw === 'off' ? raw : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+export function saveStoredLowPower(setting: 'auto' | 'on' | 'off'): void {
+  try {
+    localStorage.setItem(LOW_POWER_KEY, setting);
+  } catch {
+    // quota exceeded or storage disabled; the setting just resets next visit
+  }
+}

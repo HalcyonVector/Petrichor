@@ -1718,3 +1718,39 @@ input[type="text"] {
 .sky-season[data-season='summer'] {
   background: linear-gradient(180deg, rgba(255, 200, 130, 1), rgba(255, 160, 110, 1));
 }
+
+/* ============ Low-power visuals (Studio → Sound) ============ */
+
+.app--lowpower .tray,
+.app--lowpower .onboarding-hint {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(22, 26, 38, 0.94);
+}
+
+.app--lowpower .drawer {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgb(16, 19, 28);
+}
+
+.app--lowpower .drawer-backdrop {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(4, 6, 12, 0.6);
+}
+
+.app--lowpower .sky-star,
+.app--lowpower .sky-cloud,
+.app--lowpower .sky-aurora-band,
+.app--lowpower .sky-fog-bank,
+.app--lowpower .sky-reflection,
+.app--lowpower .tray-chord,
+.app--lowpower .immersive-chord {
+  animation: none !important;
+}
+
+.app--lowpower .sky-particles,
+.app--lowpower .sky-ripple {
+  display: none;
+}

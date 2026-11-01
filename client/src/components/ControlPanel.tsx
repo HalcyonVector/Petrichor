@@ -69,6 +69,10 @@ interface ControlPanelProps {
   sleepRemainingMs: number;
   fading: boolean;
   onSetSleep: (minutes: number | null) => void;
+  lowPowerSetting: 'auto' | 'on' | 'off';
+  /** Whether low-power visuals are actually in effect right now. */
+  lowPowerActive: boolean;
+  onLowPowerChange: (setting: 'auto' | 'on' | 'off') => void;
   isRecording: boolean;
   /** Elapsed time of the running recording, e.g. "1:05". */
   recordingElapsed: string | null;
@@ -147,6 +151,7 @@ export function ControlPanel({
   onCopyShareLink, linkCopied,
   locationLabel, onSelectLocation, onClearLocation,
   started, focus, onFocusChange, sleepEndsAt, sleepMinutes, sleepRemainingMs, fading, onSetSleep,
+  lowPowerSetting, lowPowerActive, onLowPowerChange,
   isRecording, recordingElapsed, recordingUrl, recordingError, onStartRecording, onStopRecording,
 }: ControlPanelProps) {
   const segClass = (active: boolean) => (active ? 'segmented-btn segmented-btn--active' : 'segmented-btn');
@@ -205,6 +210,27 @@ export function ControlPanel({
                   : started
                     ? 'Fades the music out gently over the last 30 seconds, then stops.'
                     : 'Start playback to set a timer.'}
+            </p>
+          </div>
+
+          <div className="session-row">
+            <span className="session-label" id="lowpower-label">Low-power visuals</span>
+            <div className="segmented" role="group" aria-labelledby="lowpower-label">
+              {(['auto', 'on', 'off'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={segClass(lowPowerSetting === option)}
+                  aria-pressed={lowPowerSetting === option}
+                  onClick={() => onLowPowerChange(option)}
+                >
+                  {option === 'auto' ? 'Auto' : option === 'on' ? 'On' : 'Off'}
+                </button>
+              ))}
+            </div>
+            <p className="session-hint">
+              Solid panels and a calmer sky, for older phones and longer battery. The music is unchanged.
+              {lowPowerSetting === 'auto' && (lowPowerActive ? ' Auto: on for this device.' : ' Auto: off for this device.')}
             </p>
           </div>
         </div>

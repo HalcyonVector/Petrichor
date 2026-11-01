@@ -4,6 +4,8 @@ import type * as Tone from 'tone';
 interface VisualizerProps {
   analyser: Tone.Analyser | null;
   active: boolean;
+  /** Low-power mode: about 20 fps and no glow. */
+  lowPower?: boolean;
 }
 
 const POINTS = 160;
@@ -15,7 +17,7 @@ const POINTS = 160;
  * a slow, low sine, so the tray never has a blank gap. Under
  * prefers-reduced-motion the idle line is drawn still.
  */
-export function Visualizer({ analyser, active }: VisualizerProps) {
+export function Visualizer({ analyser, active, lowPower = false }: VisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export function Visualizer({ analyser, active }: VisualizerProps) {
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     let frame = 0;
+    let lastDraw = 0;
     let gain = 4;
     const ys = new Float32Array(POINTS);
 
@@ -44,6 +47,11 @@ export function Visualizer({ analyser, active }: VisualizerProps) {
     observer?.observe(canvas);
 
     const draw = (now: number) => {
+      if (lowPower && now - lastDraw < 50) {
+        frame = requestAnimationFrame(draw);
+        return;
+      }
+      lastDraw = now;
       const { width, height } = canvas;
       const mid = height / 2;
       ctx.clearRect(0, 0, width, height);
@@ -105,7 +113,7 @@ export function Visualizer({ analyser, active }: VisualizerProps) {
       ctx.lineJoin = 'round';
       ctx.strokeStyle = stroke;
       ctx.shadowColor = 'rgba(255, 214, 140, 0.6)';
-      ctx.shadowBlur = (active ? 10 : 5) * dpr;
+      ctx.shadowBlur = lowPower ? 0 : (active ? 10 : 5) * dpr;
       ctx.stroke();
       ctx.shadowBlur = 0;
 
@@ -117,7 +125,7 @@ export function Visualizer({ analyser, active }: VisualizerProps) {
       cancelAnimationFrame(frame);
       observer?.disconnect();
     };
-  }, [analyser, active]);
+  }, [analyser, active, lowPower]);
 
   return <canvas ref={canvasRef} className="visualizer" aria-hidden="true" />;
 }

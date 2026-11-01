@@ -14,6 +14,7 @@ import { mapInputsToParams } from './mapping/parameterMapping';
 import { dayOfYear } from './lib/localHour';
 import { moonPhase } from './lib/moon';
 import { winterness } from './lib/seasons';
+import { detectLowPowerDevice, resolveLowPower, type LowPowerSetting } from './lib/lowPower';
 import { formatElapsed } from './lib/formatTime';
 import { keyName } from './audio/musicTheory';
 import { isThunderstorm } from './lib/weatherCode';
@@ -23,7 +24,7 @@ import type { PresetSource } from './lib/presetsStore';
 import { buildShareUrl, readShareParamsFromLocation } from './lib/shareLink';
 import { copyToClipboard } from './lib/clipboard';
 import {
-  hasSeenOnboarding, loadStoredFocus, loadStoredLocation, loadStoredMix, loadStoredVolume, markOnboardingSeen,
+  hasSeenOnboarding, loadStoredFocus, loadStoredLowPower, saveStoredLowPower, loadStoredLocation, loadStoredMix, loadStoredVolume, markOnboardingSeen,
   saveStoredFocus, saveStoredLocation, saveStoredMix, saveStoredVolume,
   type StoredLocation,
 } from './lib/localSettings';
@@ -84,6 +85,10 @@ export default function App() {
   const [locationOverride, setLocationOverride] = useState<StoredLocation | null>(() => loadStoredLocation());
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [focus, setFocus] = useState(() => loadStoredFocus());
+  const [lowPowerSetting, setLowPowerSetting] = useState<LowPowerSetting>(() => loadStoredLowPower());
+  const lowPowerDetected = useMemo(() => detectLowPowerDevice(navigator as Parameters<typeof detectLowPowerDevice>[0]), []);
+  const lowPower = resolveLowPower(lowPowerSetting, lowPowerDetected);
+  useEffect(() => saveStoredLowPower(lowPowerSetting), [lowPowerSetting]);
   const [fading, setFading] = useState(false);
   const [chord, setChord] = useState<string | null>(null);
   const [studioTab, setStudioTab] = useState<StudioSection>('sound');
@@ -407,7 +412,7 @@ export default function App() {
   };
 
   return (
-    <div className={immersive ? 'app app--immersive' : 'app'}>
+    <div className={['app', immersive && 'app--immersive', lowPower && 'app--lowpower'].filter(Boolean).join(' ')}>
       <div ref={mainRegionRef}>
         <SkyScene
           hour={inputs.hour}
@@ -415,7 +420,7 @@ export default function App() {
           moonPhase={inputs.moonPhase}
           weather={inputs.weather}
           lightningTrigger={lightningTrigger}
-          subscribe={subscribeEngine}
+          subscribe={lowPower ? undefined : subscribeEngine}
         />
 
         <div className="brand">Petrichor</div>
@@ -434,6 +439,7 @@ export default function App() {
             focus={focus}
             sleepLabel={sleepLabel}
             analyser={engineRef.current.getAnalyser()}
+            lowPower={lowPower}
             started={started}
             onStart={handleStart}
             onStop={handleStop}
@@ -457,7 +463,7 @@ export default function App() {
         </main>
       </div>
 
-      {immersive && !reducedMotion && (
+      {immersive && !reducedMotion && !lowPower && (
         <HorizonBand analyser={engineRef.current.getAnalyser()} active={started} />
       )}
       {immersive && (
@@ -551,6 +557,9 @@ export default function App() {
               sleepRemainingMs={sleepTimer.remainingMs}
               fading={fading}
               onSetSleep={sleepTimer.set}
+              lowPowerSetting={lowPowerSetting}
+              lowPowerActive={lowPower}
+              onLowPowerChange={setLowPowerSetting}
               isRecording={recorder.isRecording}
               recordingElapsed={recordingElapsed}
               recordingUrl={recorder.recordingUrl}

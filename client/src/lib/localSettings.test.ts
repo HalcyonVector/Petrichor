@@ -5,6 +5,7 @@ import {
   loadStoredLocation, saveStoredLocation,
   hasSeenOnboarding, markOnboardingSeen,
   loadStoredFocus, saveStoredFocus,
+  loadStoredLowPower, saveStoredLowPower,
 } from './localSettings';
 import type { MixLayer } from '../audio/AudioEngine';
 
@@ -106,5 +107,15 @@ describe('focus mode persistence', () => {
     expect(loadStoredFocus()).toBe(true);
     saveStoredFocus(false);
     expect(loadStoredFocus()).toBe(false);
+  });
+});
+
+describe('low-power persistence', () => {
+  it('defaults to auto and round-trips', () => {
+    expect(loadStoredLowPower()).toBe('auto');
+    saveStoredLowPower('on');
+    expect(loadStoredLowPower()).toBe('on');
+    localStorage.setItem('ambient-weather-engine:lowpower', 'nonsense');
+    expect(loadStoredLowPower()).toBe('auto');
   });
 });

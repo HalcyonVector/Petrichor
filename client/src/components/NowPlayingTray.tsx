@@ -23,6 +23,7 @@ interface NowPlayingTrayProps {
   focus: boolean;
   sleepLabel: string | null;
   analyser: Tone.Analyser | null;
+  lowPower: boolean;
   started: boolean;
   onStart: () => void;
   onStop: () => void;
@@ -39,7 +40,7 @@ interface NowPlayingTrayProps {
 }
 
 export function NowPlayingTray({
-  hour, weather, weatherOffline, place, chord, keyCue, params, isManual, focus, sleepLabel, analyser, started, onStart, onStop,
+  hour, weather, weatherOffline, place, chord, keyCue, params, isManual, focus, sleepLabel, analyser, lowPower, started, onStart, onStop,
   volume, onVolumeChange,
   recordingLabel, onOpenRecording,
   drawerOpen, onToggleDrawer, drawerToggleRef, onEnterImmersive, immersiveToggleRef,
@@ -85,7 +86,7 @@ export function NowPlayingTray({
         {join(after)}
       </div>
 
-      <Visualizer analyser={analyser} active={started} />
+      <Visualizer analyser={analyser} active={started} lowPower={lowPower} />
 
       <div className="tray-row">
         <button
