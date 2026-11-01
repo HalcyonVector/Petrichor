@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import { drumHitsForStep } from './drumPattern';
+import { generatePhrase } from './melody';
 import { buildChord, chordName, midiToNoteName, triadQuality, nextChordDegree, scaleDegreeToMidi } from './musicTheory';
 import type { ScaleName } from '../types';
 import type { AmbientParams } from '../types';
@@ -41,7 +42,7 @@ export type EngineEvent =
 
 export type EngineListener = (event: EngineEvent) => void;
 
-export type MixLayer = 'pad' | 'bass' | 'arp' | 'hihat' | 'drums' | 'rain';
+export type MixLayer = 'pad' | 'bass' | 'arp' | 'melody' | 'hihat' | 'drums' | 'rain';
 
 /** Used for presets and share links saved before the drum layer existed. */
 const FALLBACK_DRUM_DENSITY = 0.3;
@@ -51,10 +52,11 @@ const SWING = 0.18;
 // Base levels each layer sits at when its mix control is at 1 (100%) — the
 // same balance the engine has always used, now expressed as a starting
 // point the per-layer mixer multiplies against.
-const BASE_DB: Record<'pad' | 'bass' | 'arp' | 'hihat' | 'kick' | 'rim', number> = {
+const BASE_DB: Record<'pad' | 'bass' | 'arp' | 'melody' | 'hihat' | 'kick' | 'rim', number> = {
   pad: -12,
   bass: -15,
   arp: -18,
+  melody: -17,
   hihat: -24,
   kick: -13,
   rim: -21,
@@ -80,7 +82,7 @@ export class AudioEngine {
   // the middle of a phrase and the arp always agrees with the pad.
   private harmonyScale: ScaleName = DEFAULT_PARAMS.scaleMode;
   private harmonyRoot = DEFAULT_PARAMS.rootNote + DEFAULT_PARAMS.octaveShift * 12;
-  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
+  private mixLevels: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1 };
 
   private master!: Tone.Gain;
   private limiter!: Tone.Limiter;
@@ -99,6 +101,10 @@ export class AudioEngine {
   private padSynth!: Tone.PolySynth<Tone.Synth>;
   private bassSynth!: Tone.MonoSynth;
   private arpSynth!: Tone.PluckSynth;
+  private lead!: Tone.Synth;
+  private leadVibrato!: Tone.Vibrato;
+  private leadFilter!: Tone.Filter;
+  private leadDelay!: Tone.FeedbackDelay;
   private hihat!: Tone.NoiseSynth;
   private kick!: Tone.MembraneSynth;
   private kickFilter!: Tone.Filter;
@@ -171,6 +177,21 @@ export class AudioEngine {
     this.bassSynth.connect(this.reverb);
 
     this.arpSynth = new Tone.PluckSynth({ attackNoise: 0.6, dampening: 3200, resonance: 0.86 });
+
+    // The melody voice: a soft, rounded tone that swells in rather than
+    // plucks, with a touch of vibrato and a dotted-eighth echo trailing
+    // into the reverb, so phrases sing over the pads instead of poking out.
+    this.leadDelay = new Tone.FeedbackDelay({ delayTime: '8n.', feedback: 0.32, wet: 0.28 });
+    this.leadDelay.connect(this.reverb);
+    this.leadFilter = new Tone.Filter({ frequency: 2400, type: 'lowpass', rolloff: -12 });
+    this.leadFilter.connect(this.leadDelay);
+    this.leadVibrato = new Tone.Vibrato({ frequency: 4.8, depth: 0.06 });
+    this.leadVibrato.connect(this.leadFilter);
+    this.lead = new Tone.Synth({
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.09, decay: 0.4, sustain: 0.55, release: 1.8 },
+    });
+    this.lead.connect(this.leadVibrato);
     this.arpSynth.connect(this.padFilter);
 
     this.hihat = new Tone.NoiseSynth({
@@ -224,6 +245,7 @@ export class AudioEngine {
     this.applyPadVolume();
     this.applyBassVolume();
     this.applyArpVolume();
+    this.applyMelodyVolume();
     this.applyHihatVolume();
     this.applyDrumVolume();
     this.applyRainGain();
@@ -287,6 +309,9 @@ export class AudioEngine {
         break;
       case 'arp':
         this.applyArpVolume();
+        break;
+      case 'melody':
+        this.applyMelodyVolume();
         break;
       case 'hihat':
         this.applyHihatVolume();
@@ -431,6 +456,10 @@ export class AudioEngine {
     this.bassSynth.volume.rampTo(BASE_DB.bass + this.mixToDb(this.mixLevels.bass), 0.2);
   }
 
+  private applyMelodyVolume() {
+    this.lead.volume.rampTo(BASE_DB.melody + this.mixToDb(this.mixLevels.melody), 0.2);
+  }
+
   private applyArpVolume() {
     this.arpSynth.volume.rampTo(BASE_DB.arp + this.mixToDb(this.mixLevels.arp), 0.2);
   }
@@ -494,6 +523,8 @@ export class AudioEngine {
         const bassNote = midiToNoteName(scaleDegreeToMidi(root - 12, scale, this.chordDegree));
         this.bassSynth.triggerAttackRelease(bassNote, '1m', time);
       }
+
+      this.maybePlayPhrase(time, root, scale);
     }, '2m').start(0);
 
     this.arpLoop = new Tone.Loop((time) => {
@@ -526,6 +557,25 @@ export class AudioEngine {
     }, '16n').start(0);
   }
 
+  /**
+   * Now and then, sing a short phrase over the chord that just started.
+   * More often when the arp is busy (you're active, or it's daytime), half
+   * as often in focus mode. Pitched around middle C in the current key,
+   * whatever octave the rest of the mix sits in.
+   */
+  private maybePlayPhrase(time: number, harmonyRoot: number, scale: ScaleName) {
+    const chance = (0.18 + this.params.arpDensity * 0.55) * (this.focus ? 0.5 : 1);
+    if (Math.random() > chance) return;
+    const melodyRoot = 60 + (((harmonyRoot % 12) + 12) % 12);
+    const sixteenth = Tone.Time('16n').toSeconds();
+    for (const note of generatePhrase(this.chordDegree)) {
+      const midi = scaleDegreeToMidi(melodyRoot, scale, note.degree);
+      const at = time + note.step * sixteenth;
+      this.lead.triggerAttackRelease(midiToNoteName(midi), note.length * sixteenth * 0.92, at, note.velocity);
+      this.emit({ type: 'note' }, at);
+    }
+  }
+
   dispose() {
     this.stop();
     if (!this.built) return;
@@ -535,7 +585,7 @@ export class AudioEngine {
     }
     [
       this.master, this.limiter, this.analyser, this.reverb, this.padFilter, this.filterLfo, this.panLfo, this.panner,
-      this.padSynth, this.bassSynth, this.arpSynth, this.hihat, this.kick, this.kickFilter, this.rim, this.rimFilter,
+      this.padSynth, this.bassSynth, this.arpSynth, this.lead, this.leadVibrato, this.leadFilter, this.leadDelay, this.hihat, this.kick, this.kickFilter, this.rim, this.rimFilter,
       this.rainNoise, this.rainFilter, this.rainGain,
       this.thunderSynth, this.thunderFilter,
     ].forEach((node) => node?.dispose());

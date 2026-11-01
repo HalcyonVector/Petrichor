@@ -4,7 +4,7 @@ const VOLUME_KEY = 'ambient-weather-engine:volume';
 const MIX_KEY = 'ambient-weather-engine:mix';
 const LOCATION_KEY = 'ambient-weather-engine:location';
 const ONBOARDED_KEY = 'ambient-weather-engine:onboarded';
-const MIX_LAYERS: MixLayer[] = ['pad', 'bass', 'arp', 'hihat', 'drums', 'rain'];
+const MIX_LAYERS: MixLayer[] = ['pad', 'bass', 'arp', 'melody', 'hihat', 'drums', 'rain'];
 
 export interface StoredLocation {
   lat: number;
