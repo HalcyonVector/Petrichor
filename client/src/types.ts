@@ -13,6 +13,10 @@ export interface AmbientParams {
   /** 0..1, how busy the lo-fi kick/rim groove is. Optional: presets and share links saved before it existed play a soft default groove. */
   drumDensity?: number;
   rainAmount: number; // 0..1, filtered noise "rain" layer level
+  /** 0..1 nature textures. Optional so older presets and share links still load (they just play without them). */
+  crickets?: number; // warm, dry nights
+  birds?: number; // around dawn, a little at dusk
+  snowShimmer?: number; // high bell tones while it snows
   windModulation: number; // 0..1, LFO rate/depth on the filter + panning
   warmth: number; // 0..1, detune/saturation amount, lower = colder/sparser
   reverbWet: number; // 0..1
@@ -29,6 +33,8 @@ export interface WeatherSnapshot {
   city?: string | null;
   /** Seconds offset from UTC at the weather location. Used to compute that location's local hour when it's a deliberate override (not wherever the browser happens to be). */
   utcOffsetSeconds?: number;
+  /** Latitude of the weather location, when known (used for the hemisphere's seasons). */
+  lat?: number;
 }
 
 export interface ActivitySnapshot {
@@ -46,6 +52,10 @@ export interface LiveInputs {
   activity: ActivitySnapshot;
   /** 0 = 1 January. Picks the day's key; omitted means C. */
   dayOfYear?: number;
+  /** 0..1 position in the lunar cycle (0 new, 0.5 full). Omitted means no moon influence. */
+  moonPhase?: number;
+  /** 0..1, 1 = midwinter, 0 = midsummer (see lib/seasons.ts). Omitted means no seasonal influence. */
+  winterness?: number;
 }
 
 export interface Preset {

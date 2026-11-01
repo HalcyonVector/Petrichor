@@ -12,15 +12,19 @@ import { applyFocusMode } from './mapping/focusMode';
 import { SLEEP_FADE_MS, formatCountdown } from './lib/sleepTimer';
 import { mapInputsToParams } from './mapping/parameterMapping';
 import { dayOfYear } from './lib/localHour';
+import { moonPhase } from './lib/moon';
+import { winterness } from './lib/seasons';
+import { detectLowPowerDevice, resolveLowPower, type LowPowerSetting } from './lib/lowPower';
 import { formatElapsed } from './lib/formatTime';
 import { keyName } from './audio/musicTheory';
 import { isThunderstorm } from './lib/weatherCode';
+import { pickCelestialBody } from './sky/skyMath';
 import { listPresets, savePreset, deletePreset } from './lib/presetsStore';
 import type { PresetSource } from './lib/presetsStore';
 import { buildShareUrl, readShareParamsFromLocation } from './lib/shareLink';
 import { copyToClipboard } from './lib/clipboard';
 import {
-  hasSeenOnboarding, loadStoredFocus, loadStoredLocation, loadStoredMix, loadStoredVolume, markOnboardingSeen,
+  hasSeenOnboarding, loadStoredFocus, loadStoredLowPower, saveStoredLowPower, loadStoredLocation, loadStoredMix, loadStoredVolume, markOnboardingSeen,
   saveStoredFocus, saveStoredLocation, saveStoredMix, saveStoredVolume,
   type StoredLocation,
 } from './lib/localSettings';
@@ -52,7 +56,7 @@ const STUDIO_TABS: { key: StudioSection; label: string }[] = [
   { key: 'record', label: 'Record' },
 ];
 
-const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, hihat: 1, drums: 1, rain: 1 };
+const DEFAULT_MIX: Record<MixLayer, number> = { pad: 1, bass: 1, arp: 1, melody: 1, hihat: 1, drums: 1, rain: 1, nature: 1 };
 
 export default function App() {
   const engineRef = useRef<AudioEngine | null>(null);
@@ -81,6 +85,10 @@ export default function App() {
   const [locationOverride, setLocationOverride] = useState<StoredLocation | null>(() => loadStoredLocation());
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [focus, setFocus] = useState(() => loadStoredFocus());
+  const [lowPowerSetting, setLowPowerSetting] = useState<LowPowerSetting>(() => loadStoredLowPower());
+  const lowPowerDetected = useMemo(() => detectLowPowerDevice(navigator as Parameters<typeof detectLowPowerDevice>[0]), []);
+  const lowPower = resolveLowPower(lowPowerSetting, lowPowerDetected);
+  useEffect(() => saveStoredLowPower(lowPowerSetting), [lowPowerSetting]);
   const [fading, setFading] = useState(false);
   const [chord, setChord] = useState<string | null>(null);
   const [studioTab, setStudioTab] = useState<StudioSection>('sound');
@@ -197,7 +205,17 @@ export default function App() {
   // (at the picked location's midnight when a location override is active).
   const utcOffset = !simulate ? weather?.utcOffsetSeconds ?? null : null;
   const inputs: LiveInputs = useMemo(
-    () => ({ hour: liveHour, weather, activity, dayOfYear: dayOfYear(Date.now(), utcOffset) }),
+    () => {
+      const day = dayOfYear(Date.now(), utcOffset);
+      return {
+        hour: liveHour,
+        weather,
+        activity,
+        dayOfYear: day,
+        moonPhase: moonPhase(Date.now()),
+        winterness: winterness(day, weather?.lat),
+      };
+    },
     [liveHour, weather, activity, utcOffset],
   );
   const liveParams = useMemo(() => mapInputsToParams(inputs), [inputs]);
@@ -220,6 +238,17 @@ export default function App() {
     if (lightningTrigger === 0) return;
     engineRef.current?.triggerThunder();
   }, [lightningTrigger]);
+
+  // A swell in the music when the sun actually rises or sets while playing
+  // (also when the Simulate hour is dragged across the horizon).
+  const celestialBody = pickCelestialBody(inputs.hour, inputs.weather?.isDay);
+  const previousBody = useRef(celestialBody);
+  useEffect(() => {
+    if (previousBody.current !== celestialBody && started) {
+      engineRef.current?.triggerHorizonSwell(celestialBody === 'sun' ? 'sunrise' : 'sunset');
+    }
+    previousBody.current = celestialBody;
+  }, [celestialBody, started]);
 
   const getRecordingStream = useCallback(() => engineRef.current?.getRecordingStream() ?? null, []);
   const recorder = useRecorder(getRecordingStream);
@@ -383,13 +412,15 @@ export default function App() {
   };
 
   return (
-    <div className={immersive ? 'app app--immersive' : 'app'}>
+    <div className={['app', immersive && 'app--immersive', lowPower && 'app--lowpower'].filter(Boolean).join(' ')}>
       <div ref={mainRegionRef}>
         <SkyScene
           hour={inputs.hour}
+          winterness={inputs.winterness}
+          moonPhase={inputs.moonPhase}
           weather={inputs.weather}
           lightningTrigger={lightningTrigger}
-          subscribe={subscribeEngine}
+          subscribe={lowPower ? undefined : subscribeEngine}
         />
 
         <div className="brand">Petrichor</div>
@@ -408,6 +439,7 @@ export default function App() {
             focus={focus}
             sleepLabel={sleepLabel}
             analyser={engineRef.current.getAnalyser()}
+            lowPower={lowPower}
             started={started}
             onStart={handleStart}
             onStop={handleStop}
@@ -431,7 +463,7 @@ export default function App() {
         </main>
       </div>
 
-      {immersive && !reducedMotion && (
+      {immersive && !reducedMotion && !lowPower && (
         <HorizonBand analyser={engineRef.current.getAnalyser()} active={started} />
       )}
       {immersive && (
@@ -525,6 +557,9 @@ export default function App() {
               sleepRemainingMs={sleepTimer.remainingMs}
               fading={fading}
               onSetSleep={sleepTimer.set}
+              lowPowerSetting={lowPowerSetting}
+              lowPowerActive={lowPower}
+              onLowPowerChange={setLowPowerSetting}
               isRecording={recorder.isRecording}
               recordingElapsed={recordingElapsed}
               recordingUrl={recorder.recordingUrl}

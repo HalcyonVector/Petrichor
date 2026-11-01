@@ -23,13 +23,17 @@ This project is for personal and educational use. It is **not a medical, therape
 - **Rain texture**: continuous pink noise through a bandpass filter, gain driven by live precipitation
 - **Wind-driven drift**: slow pan LFO and filter-cutoff LFO both modulated by live wind speed
 - **Lo-fi drum groove**: a synthesized kick (`MembraneSynth`, low-passed) and rim click (band-passed noise) on a probabilistic 16-step pattern (`drumPattern.ts`). A downbeat kick anchors it; the "and of 3" kick, 2-and-4 rims and ghost notes fade in as density rises, so a quiet night is a lone heartbeat and a busy afternoon is a full groove. 16th-note swing on the transport gives drums and hi-hat a lo-fi lilt
+- **Melody** (`melody.ts`, pure and unit-tested): now and then a short phrase of 3 to 6 notes is sung over the chord on a soft triangle voice with vibrato and a dotted-eighth echo. Phrases rise then fall, mostly by step, start and end on chord tones and never repeat a note back to back. More often when you're active or in the daytime, half as often in focus mode
+- **Nature sounds** (`NatureVoices.ts`): wind gusts that swell and sweep with the wind speed, crickets on warm dry nights, birdsong around dawn (and a little at dusk), and a high bell-like shimmer while it snows, all synthesized, on a shared "Nature" mixer channel. When the sun rises or sets while playing, a slow, wide chord swells in
 - **Phrase-safe harmony changes**: key and mode changes from the live inputs are held until the next chord change and land on the new tonic, so the pad and arp never disagree mid-phrase
-- **Per-layer mixer**: independent 0–150% mix controls for pad/bass/arp/hihat/drums/rain, layered on top of (not replacing) the automatic weather/time/activity mapping
+- **Per-layer mixer**: independent 0–150% mix controls for pad/bass/arp/melody/hihat/drums/rain/nature, layered on top of (not replacing) the automatic weather/time/activity mapping
 - **Music theory core**: scale/mode selection (lydian → major → mixolydian → dorian → minor → phrygian), chord-stacking, chord progressions and the daily key cycle live in a dependency-free module (`musicTheory.ts`)
 
 ### Live Inputs
 
 - **Time of day**: tempo, register (octave), and scale/mode drift from bright major/lydian at midday to slower minor/phrygian tonalities at night, on a continuous day/night curve (not hard cutoffs). The key changes daily, stepping one fifth around the circle of fifths so neighbouring days sit in related keys and all 12 come round every 12 days; a picked location uses its own local date. The groove is busier by day and with activity, sparse at night
+- **Seasons** (`lib/seasons.ts`): winter is a few BPM slower, a little darker, more reverberant and sparser; summer the opposite, with a faint cool or warm tint on the sky. Uses the weather location's latitude, so the southern hemisphere's seasons are flipped; neutral near the equator
+- **Moon phase** (`lib/moon.ts`): the moon is drawn at its real phase over a faint earthshine disc, and on clear nights a full moon lifts the tone a touch while a new moon darkens it. The Studio readout shows the phase and season
 - **Live weather** (via [Open-Meteo](https://open-meteo.com), no API key required): precipitation, cloud cover, wind speed, and temperature each map to a distinct synthesis parameter
 - **Temperature**: colder weather spreads the pad's detune wider and makes plucks glassier; warmer weather swells in more slowly and rounds the plucks off
 - **Weather-type classification**: Open-Meteo's WMO weather code (`lib/weatherCode.ts`) distinguishes snow and thunderstorms from ordinary rain, driving both the sky visuals and the "now playing" weather label ("SNOW", "THUNDERSTORM") instead of treating every kind of precipitation as generic rain
@@ -84,6 +88,7 @@ This project is for personal and educational use. It is **not a medical, therape
 
 ### Resilience & Accessibility
 
+- **Low-power visuals** (Studio → Sound; Auto/On/Off): solid panels instead of blur, a calmer sky without particles, ripples or music reactions, and a lighter waveform, for older phones and battery life. Auto turns on with the data saver or on modest hardware; the music is unchanged
 - **Crackle-free playback**: the audio runs on a "playback" latency context (a larger buffer than Tone's low-latency default) with a 0.25 s lookahead, so a busy page can't starve the audio thread, plus a -1 dB limiter on the output to catch thunder and chord peaks
 - **React error boundary** (`components/ErrorBoundary.tsx`): a top-level class component wraps the whole app, so a thrown error during render doesn't blank the page. Shows a plain-language fallback with a Refresh button instead of a white screen
 - **Studio drawer is a real focus trap, not just a visual overlay**: the main view and the drawer toggle native `inert` on each other based on which is open, so a closed drawer's controls are fully unreachable by Tab (not just visually hidden), and an open drawer keeps focus from leaking back to the page behind it. Opening the drawer moves focus to its close button; closing it returns focus to the toggle

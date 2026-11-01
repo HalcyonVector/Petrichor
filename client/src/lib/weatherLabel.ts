@@ -10,6 +10,8 @@ export function weatherLabel(weather: WeatherSnapshot | null, offline = false): 
   if (isSnowing(weatherCode)) return 'SNOW';
   if (precipitationMm > 2) return 'HEAVY RAIN';
   if (precipitationMm > 0.1) return 'LIGHT RAIN';
+  // Matches the sky, which starts drawing rain (and ripples) from 0.05 mm/h.
+  if (precipitationMm > 0.05) return 'DRIZZLE';
   if (cloudCoverPct > 70) return 'OVERCAST';
   if (cloudCoverPct > 30) return 'PARTLY CLOUDY';
   return 'CLEAR';

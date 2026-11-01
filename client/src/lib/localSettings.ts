@@ -4,7 +4,7 @@ const VOLUME_KEY = 'ambient-weather-engine:volume';
 const MIX_KEY = 'ambient-weather-engine:mix';
 const LOCATION_KEY = 'ambient-weather-engine:location';
 const ONBOARDED_KEY = 'ambient-weather-engine:onboarded';
-const MIX_LAYERS: MixLayer[] = ['pad', 'bass', 'arp', 'hihat', 'drums', 'rain'];
+const MIX_LAYERS: MixLayer[] = ['pad', 'bass', 'arp', 'melody', 'hihat', 'drums', 'rain', 'nature'];
 
 export interface StoredLocation {
   lat: number;
@@ -116,5 +116,24 @@ export function saveStoredFocus(focus: boolean): void {
     localStorage.setItem(FOCUS_KEY, String(focus));
   } catch {
     // quota exceeded or storage disabled; focus mode just resets next visit
+  }
+}
+
+const LOW_POWER_KEY = 'ambient-weather-engine:lowpower';
+
+export function loadStoredLowPower(): 'auto' | 'on' | 'off' {
+  try {
+    const raw = localStorage.getItem(LOW_POWER_KEY);
+    return raw === 'on' || raw === 'off' ? raw : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+export function saveStoredLowPower(setting: 'auto' | 'on' | 'off'): void {
+  try {
+    localStorage.setItem(LOW_POWER_KEY, setting);
+  } catch {
+    // quota exceeded or storage disabled; the setting just resets next visit
   }
 }

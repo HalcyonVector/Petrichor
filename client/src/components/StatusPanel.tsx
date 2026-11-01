@@ -1,6 +1,8 @@
 import type { AmbientParams, LiveInputs } from '../types';
 import { formatClock } from '../lib/formatTime';
 import { keyName } from '../audio/musicTheory';
+import { moonIllumination, moonPhaseName } from '../lib/moon';
+import { seasonName } from '../lib/seasons';
 
 interface StatusPanelProps {
   inputs: LiveInputs;
@@ -31,6 +33,23 @@ export function StatusPanel({ inputs, weatherOffline = false, params, isManual }
                 ? 'unavailable right now, retrying. Playing with typical mild weather meanwhile.'
                 : 'loading…'}
           </dd>
+          {inputs.dayOfYear !== undefined && (
+            <>
+              <dt>Season</dt>
+              <dd>
+                {seasonName(inputs.dayOfYear, weather?.lat)}
+                {weather?.lat !== undefined && weather.lat < 0 ? ' (southern hemisphere)' : ''}
+              </dd>
+            </>
+          )}
+          {inputs.moonPhase !== undefined && (
+            <>
+              <dt>Moon</dt>
+              <dd>
+                {moonPhaseName(inputs.moonPhase)} · {fmt(moonIllumination(inputs.moonPhase) * 100, 0)}% lit
+              </dd>
+            </>
+          )}
           <dt>Activity</dt>
           <dd>{fmt(activity.activity * 100, 0)}% · typing {fmt(activity.typingRate * 100, 0)}%{activity.idle ? ' · idle tab' : ''}</dd>
         </dl>
@@ -52,6 +71,17 @@ export function StatusPanel({ inputs, weatherOffline = false, params, isManual }
           <dd>{fmt(params.hihatDensity * 100, 0)}%</dd>
           <dt>Drum groove</dt>
           <dd>{params.drumDensity === undefined ? 'default' : `${fmt(params.drumDensity * 100, 0)}%`}</dd>
+          <dt>Nature</dt>
+          <dd>
+            {[
+              params.crickets ? `crickets ${fmt(params.crickets * 100, 0)}%` : null,
+              params.birds ? `birds ${fmt(params.birds * 100, 0)}%` : null,
+              params.snowShimmer ? `snow ${fmt(params.snowShimmer * 100, 0)}%` : null,
+              params.windModulation > 0.12 ? `wind gusts ${fmt(params.windModulation * 100, 0)}%` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'quiet'}
+          </dd>
           <dt>Rain layer</dt>
           <dd>{fmt(params.rainAmount * 100, 0)}%</dd>
           <dt>Wind modulation</dt>

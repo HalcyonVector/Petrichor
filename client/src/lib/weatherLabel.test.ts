@@ -46,3 +46,12 @@ describe('weatherLabel without a reading', () => {
     expect(weatherLabel(null, true)).toBe('WEATHER OFFLINE');
   });
 });
+
+describe('drizzle', () => {
+  it('labels the light precipitation the sky already draws as rain', () => {
+    const base = { temperatureC: 20, cloudCoverPct: 80, windSpeedKmh: 5, weatherCode: 51, isDay: true, source: 'client' as const };
+    expect(weatherLabel({ ...base, precipitationMm: 0.08 })).toBe('DRIZZLE');
+    expect(weatherLabel({ ...base, precipitationMm: 0.04 })).toBe('OVERCAST');
+    expect(weatherLabel({ ...base, precipitationMm: 0.5 })).toBe('LIGHT RAIN');
+  });
+});

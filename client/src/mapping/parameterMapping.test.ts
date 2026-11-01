@@ -97,3 +97,66 @@ describe('drum groove density', () => {
     expect(idle.drumDensity!).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('moonlight', () => {
+  it('brightens a clear night under a full moon and darkens it under a new moon', () => {
+    const clearNight = { hour: 2, weather: weather({ cloudCoverPct: 0 }) };
+    const full = mapInputsToParams(inputs({ ...clearNight, moonPhase: 0.5 }));
+    const none = mapInputsToParams(inputs({ ...clearNight, moonPhase: 0 }));
+    const unset = mapInputsToParams(inputs(clearNight));
+    expect(full.brightness).toBeGreaterThan(unset.brightness);
+    expect(none.brightness).toBeLessThanOrEqual(unset.brightness);
+  });
+
+  it('has no effect under full cloud or at midday', () => {
+    const overcast = { hour: 2, weather: weather({ cloudCoverPct: 100 }) };
+    expect(mapInputsToParams(inputs({ ...overcast, moonPhase: 0.5 })).brightness).toBeCloseTo(
+      mapInputsToParams(inputs(overcast)).brightness,
+    );
+    expect(mapInputsToParams(inputs({ hour: 14, moonPhase: 0.5 })).brightness).toBeCloseTo(
+      mapInputsToParams(inputs({ hour: 14 })).brightness,
+      2,
+    );
+  });
+});
+
+describe('nature textures', () => {
+  it('has crickets on a warm, dry night only', () => {
+    const warmNight = mapInputsToParams(inputs({ hour: 1, weather: weather({ temperatureC: 24 }) }));
+    expect(warmNight.crickets!).toBeGreaterThan(0.3);
+    expect(mapInputsToParams(inputs({ hour: 1, weather: weather({ temperatureC: 5 }) })).crickets).toBe(0);
+    expect(mapInputsToParams(inputs({ hour: 14, weather: weather({ temperatureC: 24 }) })).crickets).toBe(0);
+    expect(mapInputsToParams(inputs({ hour: 1, weather: weather({ temperatureC: 24, precipitationMm: 1 }) })).crickets).toBe(0);
+  });
+
+  it('has birds around dawn, fewer at dusk, none at midday or in hard frost', () => {
+    const dawn = mapInputsToParams(inputs({ hour: 6.5 })).birds!;
+    const dusk = mapInputsToParams(inputs({ hour: 18.5 })).birds!;
+    expect(dawn).toBeCloseTo(1);
+    expect(dusk).toBeGreaterThan(0);
+    expect(dusk).toBeLessThan(dawn);
+    expect(mapInputsToParams(inputs({ hour: 13 })).birds).toBe(0);
+    expect(mapInputsToParams(inputs({ hour: 6.5, weather: weather({ temperatureC: -10 }) })).birds).toBe(0);
+    expect(mapInputsToParams(inputs({ hour: 6.5, weather: weather({ precipitationMm: 3 }) })).birds!).toBeLessThan(dawn);
+  });
+
+  it('shimmers only while it snows', () => {
+    expect(mapInputsToParams(inputs({ weather: weather({ weatherCode: 73, precipitationMm: 1 }) })).snowShimmer!).toBeGreaterThan(0);
+    expect(mapInputsToParams(inputs({ weather: weather({ weatherCode: 63, precipitationMm: 1 }) })).snowShimmer).toBe(0);
+  });
+});
+
+describe('seasons', () => {
+  it('makes winter slower, darker and wetter than summer, all else equal', () => {
+    const winter = mapInputsToParams(inputs({ winterness: 1 }));
+    const summer = mapInputsToParams(inputs({ winterness: 0 }));
+    expect(winter.tempo).toBeLessThan(summer.tempo);
+    expect(winter.brightness).toBeLessThan(summer.brightness);
+    expect(winter.reverbWet).toBeGreaterThan(summer.reverbWet);
+    expect(winter.arpDensity).toBeLessThanOrEqual(summer.arpDensity);
+  });
+
+  it('is neutral at the equinox (winterness 0.5) and when unknown', () => {
+    expect(mapInputsToParams(inputs({ winterness: 0.5 })).tempo).toBeCloseTo(mapInputsToParams(inputs()).tempo);
+  });
+});
