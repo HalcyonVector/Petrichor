@@ -156,7 +156,7 @@ export function ControlPanel({
 }: ControlPanelProps) {
   const segClass = (active: boolean) => (active ? 'segmented-btn segmented-btn--active' : 'segmented-btn');
   return (
-    <div className="control-panel">
+    <div className={`control-panel control-panel--${section}`}>
       {section === 'sound' && (
         <div className="hud-card">
           <h3>Session</h3>
