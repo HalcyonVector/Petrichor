@@ -143,6 +143,10 @@ npm start        # Express serves the API + the built client on :5273 (one proce
 
 Note the port story is different between the two modes: in **dev**, the Vite client (`:5273`) and the Express API (`:3001`, proxied) are two separate processes that have to run side by side on different ports. In **production**, there's no Vite server at all. Express alone serves the built client and the API from a single process, and that's what defaults to `:5273` (override with the `PORT` env var).
 
+### Deploying to Render
+
+Every push to `main` runs the CI workflow (`.github/workflows/ci.yml`). Once the tests and build pass, its `deploy` job calls the Render service's **Deploy Hook**, so a broken build is never deployed. One-time setup: copy the hook URL from Render (**Settings → Deploy Hook**) into a GitHub repository secret named `RENDER_DEPLOY_HOOK` (**Settings → Secrets and variables → Actions**). Without the secret the job skips itself. If you use this, set Render's own Auto-Deploy to **Off** so a deploy isn't triggered twice.
+
 ### Tests
 
 ```bash

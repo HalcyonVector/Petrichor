@@ -33,3 +33,24 @@ jobs:
       # Typechecks (tsc -b) and builds the production bundle.
       - name: Client build
         run: npm run build --prefix client
+
+  # Deploys to Render after the tests pass on a push to main, by calling the
+  # service's Deploy Hook (Render → Settings → Deploy Hook). Stored as the
+  # repository secret RENDER_DEPLOY_HOOK; without it this job does nothing.
+  # Only runs for pushes to main, never for pull requests, so the secret is
+  # never exposed to forks.
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK secret not set; skipping deploy."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 30 -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
+          echo "Render deploy triggered."
