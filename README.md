@@ -4,11 +4,15 @@ A full-stack generative ambient/lo-fi music engine that composes and synthesizes
 
 > **What it's for:** a self-playing soundscape you leave running in a tab while you work. The sound engine, not just a themed music player, is the thing that was built here.
 
+**Live demo:** [petrichor-5ayc.onrender.com](https://petrichor-5ayc.onrender.com/) (hosted on Render, so the first load after a quiet spell can be slow)
+
+![Player: live weather, time and key, with the animated sky behind it](docs/screenshots/overview.png)
+
 ---
 
 ## Disclaimer
 
-This project is for personal and educational use. It is **not a medical, therapeutic, or clinical audio tool**: it makes no claims about focus, sleep, or wellness outcomes. Generated audio is unbounded and probabilistic; volume and intensity can vary as inputs change, so use your device's volume controls and don't rely on it in situations requiring undivided auditory attention. Live weather is sourced from a free-tier public API and may be delayed, cached, or (rarely) unavailable, in which case the engine falls back to sensible defaults rather than failing silently.
+This project is for personal and educational use. It is **not a medical, therapeutic, or clinical audio tool**: it makes no claims about focus, sleep, or wellness outcomes. Generated audio is unbounded and probabilistic; volume and intensity can vary as inputs change, so use your device's volume controls and don't rely on it in situations requiring undivided auditory attention. Live weather is sourced from a public API and may be delayed, cached, or (rarely) unavailable, in which case the engine falls back to sensible defaults rather than failing silently.
 
 ---
 
@@ -108,9 +112,9 @@ This project is for personal and educational use. It is **not a medical, therape
 | **PWA** | Web App Manifest + Service Worker + Wake Lock API | Installable shell, offline app cache, screen-sleep prevention |
 | **OS Media Controls** | Media Session API | Lock-screen/notification play-pause + now-playing metadata |
 | **Backend Framework** | Express (Node.js, ESM) | Weather proxy, IP geolocation fallback, presets CRUD, static hosting |
-| **Weather Data** | Open-Meteo | Free, keyless current-conditions API |
-| **Geocoding** | Open-Meteo Geocoding API | Free, keyless city search for the location picker, called directly from the client |
-| **IP Geolocation** | ipapi.co | Free-tier, keyless fallback when browser geolocation is denied |
+| **Weather Data** | Open-Meteo | Keyless current-conditions API |
+| **Geocoding** | Open-Meteo Geocoding API | Keyless city search for the location picker, called directly from the client |
+| **IP Geolocation** | ipapi.co | Keyless fallback when browser geolocation is denied |
 | **Persistence** | Flat JSON file (`server/data/presets.json`) + `localStorage` fallback | No database dependency; client-only mode still works |
 | **Testing** | Vitest + Supertest | Pure-logic unit tests (client) and HTTP-level route tests (server) |
 | **Dev Orchestration** | `concurrently` + `cross-env` | Runs client + server dev servers with one `npm run dev`; `cross-env` sets `PORT` cross-platform (works in PowerShell, not just bash) |
@@ -359,6 +363,6 @@ GitHub: [@HalcyonVector](https://github.com/HalcyonVector)
 
 ---
 
-## 📄 License
+## License
 
 MIT License. See [LICENSE](./LICENSE). Free to use, modify, and distribute, with no warranty.
